@@ -131,6 +131,12 @@ h2{font:700 22px/28px var(--sans);margin:32px 0 12px}
 .food .s{font:400 13px/18px var(--sans);color:var(--label2)}
 .food .g{font:600 15px/20px var(--round);font-variant-numeric:tabular-nums;color:var(--label2)}
 .empty{font:400 15px/20px var(--sans);color:var(--label2);margin:12px 0 0}
+.medrow{display:flex;align-items:center;gap:12px;margin-top:12px}
+.medrow+.medrow{padding-top:12px;border-top:.5px solid var(--sep)}
+.medrow .tx{flex:1;min-width:0}
+.medrow b{display:block;font:600 17px/22px var(--sans)}
+.medrow small{display:block;font:400 13px/18px var(--sans);color:var(--label2)}
+.medrow .btn{height:36px;padding:0 12px;font-size:15px}
 
 /* treino */
 .tr-name{font:700 22px/28px var(--sans);margin-top:8px}
@@ -256,6 +262,7 @@ button.li:active{background:var(--fill)}
   <p class="lead" id="data"></p>
   <p class="status" id="sync"></p>
   <div id="demoTag"></div>
+  <div id="medCard"></div>
 
   <div class="card water">
     <div class="mh"><svg class="i"><use href="#i-water"/></svg>Água<span class="r" id="aguaH"></span></div>
@@ -450,9 +457,11 @@ const alimOf=nome=>{const s=String(nome||"").replace(/^Remoção: /,"");return A
 const porUn=a=>a.p*a.gu/100;
 
 /* ---------- estado local ---------- */
-const DEF_PERFIL={altura:"",sangue:"",nasc:"",metaAgua:3000,metaProt:140,metaCardio:30};
+const DEF_PERFIL={altura:"",sangue:"",nasc:"",metaAgua:2500,metaProt:120,metaCardio:30};
 let S=JSON.parse(localStorage.getItem(KEY)||"null")||{perfil:{},dias:{},series:[],pesos:[],exames:[],meds:[],treinos:[]};
-S.perfil=Object.assign({},DEF_PERFIL,S.perfil);
+S.perfil=Object.assign({},DEF_PERFIL,S.perfil);S.doses=S.doses||[];
+const medsAtivos=()=>{const v=new Set();return S.meds.filter(m=>!m.fim&&!v.has(norm(m.n))&&v.add(norm(m.n)))};
+const tomouHoje=n=>S.doses.some(d=>d.data===hojeISO()&&norm(d.nome)===norm(n));
 const save=()=>localStorage.setItem(KEY,JSON.stringify(S));
 const novoDia=()=>({agua:0,aguaH:"",prot:[],passos:"",cardio:""});
 const diaDe=k=>S.dias[k]||(S.dias[k]=novoDia());
@@ -483,7 +492,7 @@ async function post(body){
 }
 async function flush(){
   if(flushing||!CFG.url||!token())return;
-  const q=queue();if(!q.length)return;
+  const q=queue().slice(0,12);if(!q.length)return;
   flushing=true;let ok=false;
   try{const r=await post({ops:q});
     if(r.ok){localStorage.setItem(QK,JSON.stringify(queue().slice(q.length)));ok=true;syncMsg="Salvo na planilha às "+agora();syncErr=false}
@@ -492,7 +501,8 @@ async function flush(){
   flushing=false;setStatus();
   if(ok&&queue().length)flush();
 }
-function enqueue(op){if(DEMO)return;const q=queue();q.push(op);localStorage.setItem(QK,JSON.stringify(q));syncErr=false;setStatus();flush()}
+const novoId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+function enqueue(op){if(DEMO)return;const q=queue();op.id=novoId();q.push(op);localStorage.setItem(QK,JSON.stringify(q));syncErr=false;setStatus();flush()}
 async function pull(){
   if(DEMO||!CFG.url||!token()){setStatus();return}
   await flush();
@@ -515,13 +525,14 @@ function fromSnapshot(T){
   const treinos=Object.values(tr).sort((a,b)=>a.data<b.data?-1:1);
   const pesos=(T["Peso e medidas"]||[]).filter(r=>r[0]&&num(r[1])).map(r=>({data:r[0],kg:num(r[1])})).sort((a,b)=>a.data<b.data?-1:1);
   const exames=(T["Exames"]||[]).filter(r=>r[1]).map(r=>({n:r[1],data:r[0],prox:r[6],alt:r[4]==="Sim"?(r[3]||"Alterado"):""}));
-  const meds=[...(T["Vitaminas"]||[]).filter(r=>r[0]).map(r=>({n:r[0],dose:r[1],tipo:"Vitamina"})),
-    ...(T["Remédios"]||[]).filter(r=>r[0]).map(r=>({n:r[0],dose:r[1],tipo:r[3]==="Sim"?"Remédio controlado":"Remédio"}))];
+  const meds=[...(T["Vitaminas"]||[]).filter(r=>r[0]).map(r=>({n:String(r[0]),dose:r[1],tipo:"Vitamina",fim:r[4]||""})),
+    ...(T["Remédios"]||[]).filter(r=>r[0]).map(r=>({n:String(r[0]),dose:r[1],tipo:r[3]==="Sim"?"Remédio controlado":"Remédio",fim:r[5]||""}))];
+  const doses=(T["Doses"]||[]).filter(r=>r[0]&&r[2]).map(r=>({data:r[0],nome:String(r[2])}));
   const P={};(T["Perfil"]||[]).forEach(r=>P[r[0]]=r[1]);
   let nasc=String(P["Data de nascimento"]||"");if(/^\d{2}\/\d{2}\/\d{4}$/.test(nasc))nasc=nasc.split("/").reverse().join("-");
   S={perfil:{altura:P["Altura (m)"]!==undefined?String(P["Altura (m)"]).replace(".",","):"",sangue:P["Tipo sanguíneo"]||"",nasc,
-      metaAgua:num(P["Meta de água (ml)"])||3000,metaProt:num(P["Meta de proteína (g)"])||140,metaCardio:num(P["Meta de cardio (min)"])||30},
-    dias,series,pesos,exames,meds,treinos};
+      metaAgua:num(P["Meta de água (ml)"])||2500,metaProt:num(P["Meta de proteína (g)"])||120,metaCardio:num(P["Meta de cardio (min)"])||30},
+    dias,series,pesos,exames,meds,treinos,doses};
 }
 
 /* ---------- navegação ---------- */
@@ -610,6 +621,9 @@ function renderResumo(){
   const d=dia(),p=S.perfil;
   $("#data").textContent=new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"}).replace(/^./,c=>c.toUpperCase());
   $("#demoTag").innerHTML=DEMO?`<span class="pill demo">${ico("flask")}Dados de exemplo</span>`:"";
+  const pend=medsAtivos().filter(m=>!tomouHoje(m.n));
+  $("#medCard").innerHTML=pend.length?`<div class="card tintc"><div class="mh">${ico("medkit")}Remédios de hoje</div>${pend.map(m=>`<div class="medrow"><span class="tx"><b>${esc(m.n)}</b><small>${esc(m.dose?(/^\d+$/.test(String(m.dose))?m.dose+(m.dose==1?" dose":" doses"):m.dose):"Dose não informada")}</small></span><button class="btn solid" data-dose="${esc(m.n)}">${ico("checkmark")}Concluir</button></div>`).join("")}</div>`:"";
+  $$("[data-dose]").forEach(b=>b.onclick=()=>{const n=b.dataset.dose;S.doses.push({data:hojeISO(),nome:n});save();render();enqueue({op:"append",tab:"Doses",row:[hojeISO(),agora(),n]})});
   metric("agua",d.agua,p.metaAgua,"ml");$("#aguaH").textContent=d.aguaH?"Último às "+d.aguaH:"";
   metric("prot",protTotal(d),p.metaProt,"g");
   const itens=protItens(d);
@@ -749,9 +763,10 @@ function renderSub(){
     return `<div class="li"><span class="tx">${esc(e.n)}<small>${e.data?"Feito em "+fmtD(e.data):"Sem data"}${e.prox?" · próximo em "+fmtD(e.prox):""}${e.alt?" · "+esc(e.alt):""}</small></span>
       ${e.alt?`<span class="badge red">Alterado</span>`:venc?`<span class="badge" style="--c:var(--prot);--c-t:var(--prot-t)">Vencido</span>`:`<span class="badge gray">Em dia</span>`}</div>`}).join("")}</div>`
     :`<div class="card" style="margin-top:24px"><p class="empty" style="margin:0">Nenhum exame cadastrado. Toque em + para adicionar o primeiro.</p></div>`;
-  const grp={};S.meds.forEach(m=>{const g=m.tipo==="Vitamina"?"Vitaminas":"Remédios";(grp[g]=grp[g]||[]).push(m)});
-  $("#mL").innerHTML=S.meds.length?Object.entries(grp).map(([g,ms])=>`<p class="lhead">${g}</p><div class="list">${ms.map(m=>`<div class="li"><span class="tx">${esc(m.n)}<small>${esc(m.dose||"Dose não informada")}</small></span>${m.tipo==="Remédio controlado"?`<span class="badge red">Controlado</span>`:""}</div>`).join("")}</div>`).join("")
+  const ativos=medsAtivos(),grp={};ativos.forEach(m=>{const g=m.tipo==="Vitamina"?"Vitaminas":"Remédios";(grp[g]=grp[g]||[]).push(m)});
+  $("#mL").innerHTML=ativos.length?Object.entries(grp).map(([g,ms])=>`<p class="lhead">${g}</p><div class="list">${ms.map(m=>`<button class="li" data-med="${esc(m.n)}" aria-label="${esc(m.n)}. Toque para remover"><span class="tx">${esc(m.n)}<small>${esc(m.dose||"Dose não informada")}${tomouHoje(m.n)?" · tomado hoje":""}</small></span>${m.tipo==="Remédio controlado"?`<span class="badge red">Controlado</span>`:""}${ico("chevron-forward","i chev")}</button>`).join("")}</div>`).join("")+`<p class="lfoot">Toque num item para remover. Cada item ativo aparece no Resumo até você concluir a dose do dia.</p>`
     :`<div class="card" style="margin-top:24px"><p class="empty" style="margin:0">Nada cadastrado. Toque em + para adicionar.</p></div>`;
+  $$("[data-med]").forEach(b=>b.onclick=()=>sheetRemoverMed(b.dataset.med));
 }
 function render(){renderResumo();renderTreinos();renderEvolucao();renderPerfil();renderSub()}
 
@@ -864,6 +879,12 @@ function sheetTema(){const cur=localStorage.getItem(THK)||"auto";
 }
 function aplicaTema(){const p=localStorage.getItem(THK)||"auto";document.documentElement.dataset.theme=p==="auto"?(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"):p}
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>{if(!QS.get("tema"))aplicaTema()});
+function sheetRemoverMed(n){const m=medsAtivos().find(x=>x.n===n);if(!m)return;
+  openSheet({title:"Remover item",body:`<div class="confirm"><p class="q">Remover ${esc(m.n)}?</p><p>Some da lista e do lembrete no Resumo. Na planilha, a data de hoje fica registrada como fim.</p></div>
+    <button class="btn danger full big" id="rmOk">Remover</button><button class="btn full big" id="rmNo" style="margin-top:8px">Manter</button>`,
+    onOpen:()=>{$("#rmNo").onclick=closeSheet;$("#rmOk").onclick=()=>{S.meds.filter(x=>norm(x.n)===norm(m.n)).forEach(x=>x.fim=hojeISO());save();render();closeSheet();
+      enqueue(m.tipo==="Vitamina"?{op:"upsert",tab:"Vitaminas",key:m.n,cols:{4:hojeISO()}}:{op:"upsert",tab:"Remédios",key:m.n,cols:{5:hojeISO()}})}}});
+}
 function sheetExame(){openSheet({title:"Novo exame",body:`
   <label class="flabel" for="eN">Exame</label><input class="field" id="eN" placeholder="Ex.: Hemograma" autocapitalize="sentences">
   <div class="grid2"><div><label class="flabel" for="eD">Feito em</label><input class="field" id="eD" type="date"></div>
@@ -876,11 +897,12 @@ function sheetExame(){openSheet({title:"Novo exame",body:`
 function sheetMed(){let tipo="Vitamina";openSheet({title:"Novo item",body:`
   <div class="seg" id="mT" style="margin-top:8px"><button data-t="Vitamina" class="on">Vitamina</button><button data-t="Remédio">Remédio</button><button data-t="Remédio controlado">Controlado</button></div>
   <label class="flabel" for="mN">Nome</label><input class="field" id="mN" placeholder="Ex.: Vitamina D" autocapitalize="sentences">
+  <p class="hint" id="mHint" style="margin:8px 4px 0;color:var(--red-t)"></p>
   <label class="flabel" for="mD">Dose</label><input class="field" id="mD" placeholder="Ex.: 1 cápsula por dia" autocapitalize="sentences">
   <button class="btn solid full big" id="mAdd" disabled>Adicionar</button>`,
   onOpen:()=>{$$("#mT button").forEach(b=>b.onclick=()=>{tipo=b.dataset.t;$$("#mT button").forEach(x=>x.classList.toggle("on",x===b))});
-    $("#mN").oninput=e=>$("#mAdd").disabled=!e.target.value.trim();$("#mAdd").onclick=()=>{
-    const m={n:$("#mN").value.trim(),dose:$("#mD").value.trim(),tipo};S.meds.push(m);save();render();closeSheet();
+    $("#mN").oninput=e=>{const v=e.target.value.trim(),dup=medsAtivos().some(x=>norm(x.n)===norm(v));$("#mAdd").disabled=!v||dup;$("#mHint").textContent=dup?"Esse item já está na lista.":""};$("#mAdd").onclick=()=>{
+    $("#mAdd").disabled=true;const m={n:$("#mN").value.trim(),dose:$("#mD").value.trim(),tipo};S.meds.push(m);save();render();closeSheet();
     enqueue(m.tipo==="Vitamina"?{op:"append",tab:"Vitaminas",row:[m.n,m.dose,"",hojeISO(),"",""]}
       :{op:"append",tab:"Remédios",row:[m.n,m.dose,"",m.tipo==="Remédio controlado"?"Sim":"Não",hojeISO(),"","",""]})}}})}
 
@@ -899,9 +921,9 @@ function seedDemo(){
   const ex={A:["Supino reto","Desenvolvimento"],B:["Puxada frontal","Remada baixa"],C:["Agachamento","Leg press"],D:["Tríceps corda","Rosca direta"]};
   treinos.slice(-4).forEach((t,j)=>{const k=trOf(t.nome).k;ex[k].forEach((e,x)=>{for(let n=1;n<=3;n++)series.push({data:t.data,treino:t.nome,ex:e,n,kg:[40,30,45,20,80,160,25,14][j*2+x]||30,rep:[12,10,10][n-1]})})});
   const pesos=[[13,73.6],[10,73.4],[8,73.1],[5,73.0],[3,72.6],[1,72.4]].map(([b,kg])=>({data:ds[13-b],kg}));
-  return {perfil:{altura:"1,71",sangue:"O+",nasc:"2001-08-04",metaAgua:3000,metaProt:140,metaCardio:30},dias,series,pesos,treinos,
+  return {perfil:{altura:"1,71",sangue:"O+",nasc:"2001-08-04",metaAgua:2500,metaProt:120,metaCardio:30},dias,series,pesos,treinos,
     exames:[{n:"Hemograma completo",data:"2026-05-12",prox:"2026-11-12",alt:""},{n:"Vitamina D",data:"2026-05-12",prox:"2027-05-12",alt:"Baixa"},{n:"Glicemia em jejum",data:"2026-05-12",prox:"2027-05-12",alt:""}],
-    meds:[{n:"Vitamina D3",dose:"2.000 UI por dia",tipo:"Vitamina"},{n:"Ômega 3",dose:"1 cápsula no almoço",tipo:"Vitamina"},{n:"Creatina",dose:"5 g por dia",tipo:"Vitamina"}]};
+    meds:[{n:"Vitamina capilar",dose:"1 cápsula pela manhã",tipo:"Remédio"}],doses:[]};
 }
 if(DEMO&&(!localStorage.getItem(KEY)||QS.has("reset"))){S=seedDemo();save()}
 
