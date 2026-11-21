@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Saúde">
+<meta name="theme-color" content="#0E0E10">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Saúde</title>
+<style>
+:root{--bg:#0E0E10;--card:#17171A;--card2:#202024;--line:#2A2A30;--text:#F2F2F3;--muted:#8E8E98;--accent:#7CE3A1;--water:#6CB6FF;--prot:#FFB86B;--warn:#FF7A7A;--r:20px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,"SF Pro Text",Inter,system-ui,sans-serif}
+body{max-width:480px;margin:0 auto;min-height:100dvh;padding:calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 96px)}
+h1{font-size:28px;line-height:32px;margin:8px 0 4px;letter-spacing:-.02em}
+h2{font-size:13px;line-height:16px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:0 0 12px}
+.sub{color:var(--muted);font-size:15px;margin:0 0 24px}
+.card{background:var(--card);border-radius:var(--r);padding:20px;margin-bottom:12px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.big{font-size:40px;line-height:44px;font-weight:700;letter-spacing:-.03em}
+.big small{font-size:16px;color:var(--muted);font-weight:500;letter-spacing:0}
+.bar{height:8px;border-radius:99px;background:var(--card2);margin:16px 0;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:99px;transition:width .3s}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+button{font:inherit;color:var(--text);background:var(--card2);border:0;border-radius:99px;padding:12px 16px;font-weight:600;font-size:15px;min-height:44px}
+button:active{opacity:.7}
+button.pri{background:var(--accent);color:#0E0E10}
+button.ghost{background:transparent;color:var(--muted)}
+input,select{font:inherit;color:var(--text);background:var(--card2);border:1px solid transparent;border-radius:14px;padding:12px 14px;min-height:44px;width:100%;font-size:16px}
+input:focus,select:focus{outline:none;border-color:var(--accent)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.grid3{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:8px}
+.list{display:flex;flex-direction:column}
+.item{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid var(--line);font-size:15px}
+.item:first-child{border-top:0}
+.item span:last-child{color:var(--muted);text-align:right}
+.tag{font-size:12px;padding:4px 10px;border-radius:99px;background:var(--card2);color:var(--muted)}
+.tag.bad{background:#3A1E1E;color:var(--warn)}.tag.ok{background:#1B3326;color:var(--accent)}
+nav{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:480px;display:flex;background:rgba(23,23,26,.92);backdrop-filter:blur(20px);padding:8px 8px calc(env(safe-area-inset-bottom) + 8px);border-top:1px solid var(--line)}
+nav button{flex:1;background:transparent;color:var(--muted);font-size:12px;padding:8px 0;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:4px}
+nav button svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+nav button.on{color:var(--accent)}
+.view{display:none}.view.on{display:block}
+.stack{display:flex;flex-direction:column;gap:8px}
+.hint{font-size:13px;color:var(--muted);margin:8px 0 0}
+label{font-size:13px;color:var(--muted);display:block;margin:0 0 4px}
+</style>
+</head>
+<body>
+
+<section id="hoje" class="view on">
+  <h1>Hoje</h1>
+  <p class="sub" id="data" style="margin-bottom:4px"></p>
+  <p class="hint" id="sync" style="margin:0 0 20px"></p>
+
+  <div class="card">
+    <h2>Água</h2>
+    <div class="row"><div class="big"><span id="aguaV">0</span> <small>/ <span id="aguaM">3000</span> ml</small></div></div>
+    <div class="bar"><i id="aguaB" style="background:var(--water);width:0"></i></div>
+    <div class="btns">
+      <button data-agua="200">+200</button><button data-agua="300">+300</button><button data-agua="500">+500</button><button data-agua="-200" class="ghost">Desfazer</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Proteína</h2>
+    <div class="row"><div class="big"><span id="protV">0</span> <small>/ <span id="protM">140</span> g</small></div></div>
+    <div class="bar"><i id="protB" style="background:var(--prot);width:0"></i></div>
+    <div class="grid3">
+      <input id="protN" placeholder="Alimento" autocomplete="off">
+      <input id="protG" placeholder="g" inputmode="decimal">
+      <button class="pri" id="protAdd">Add</button>
+    </div>
+    <div class="list" id="protL" style="margin-top:8px"></div>
+  </div>
+
+  <div class="card">
+    <h2>Treino de hoje</h2>
+    <div class="row"><div><div style="font-size:20px;font-weight:700" id="treinoHoje">—</div><div class="sub" style="margin:4px 0 0;font-size:14px" id="treinoSub"></div></div>
+    <button class="pri" data-go="treinos">Registrar</button></div>
+  </div>
+
+  <div class="grid">
+    <div class="card" style="margin:0"><h2>Passos</h2><input id="passos" inputmode="numeric" placeholder="0"></div>
+    <div class="card" style="margin:0"><h2>Cardio (min)</h2><input id="cardio" inputmode="numeric" placeholder="0"></div>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <div class="row"><div><h2 style="margin:0 0 4px">Peso</h2><div class="big" style="font-size:28px;line-height:32px"><span id="pesoV">—</span> <small>kg</small></div></div>
+    <div style="text-align:right"><h2 style="margin:0 0 4px">IMC</h2><div style="font-size:20px;font-weight:700" id="imc">—</div></div></div>
+    <div class="grid3" style="margin-top:12px"><input id="pesoN" inputmode="decimal" placeholder="Novo peso (kg)" style="grid-column:span 2"><button class="pri" id="pesoAdd">Salvar</button></div>
+  </div>
+</section>
+
+<section id="treinos" class="view">
+  <h1>Treinos</h1>
+  <p class="sub">Registre cada série na hora, entre uma e outra.</p>
+  <div class="card">
+    <div class="stack">
+      <div><label>Treino</label><select id="tipo"><option>A - Peito / Ombro</option><option>B - Costas / Ombro</option><option>C - Perna Completa</option><option>D - Tríceps / Bíceps</option></select></div>
+      <div><label>Exercício</label><input id="exN" list="exs" placeholder="Ex.: Supino reto" autocomplete="off"><datalist id="exs"></datalist></div>
+      <div class="grid"><div><label>Carga (kg)</label><input id="exC" inputmode="decimal" placeholder="0"></div><div><label>Repetições</label><input id="exR" inputmode="numeric" placeholder="0"></div></div>
+      <button class="pri" id="exAdd">Registrar série</button>
+      <p class="hint" id="exHint"></p>
+    </div>
+  </div>
+  <div class="card"><h2>Séries de hoje</h2><div class="list" id="seriesL"></div></div>
+  <div class="card"><h2>Histórico</h2><div class="list" id="histL"></div></div>
+</section>
+
+<section id="saude" class="view">
+  <h1>Saúde</h1>
+  <p class="sub">Exames, remédios e vitaminas.</p>
+
+  <div class="card"><h2>Exames</h2>
+    <div class="stack">
+      <input id="eN" placeholder="Exame (ex.: Hemograma)">
+      <div class="grid"><div><label>Data</label><input id="eD" type="date"></div><div><label>Próximo exame</label><input id="eP" type="date"></div></div>
+      <input id="eR" placeholder="O que deu alterado (opcional)">
+      <button class="pri" id="eAdd">Adicionar exame</button>
+    </div>
+    <div class="list" id="eL" style="margin-top:12px"></div>
+  </div>
+
+  <div class="card"><h2>Remédios e vitaminas</h2>
+    <div class="stack">
+      <input id="mN" placeholder="Nome">
+      <div class="grid"><input id="mD" placeholder="Dose (ex.: 1 cápsula)"><select id="mT"><option>Vitamina</option><option>Remédio</option><option>Remédio controlado</option></select></div>
+      <button class="pri" id="mAdd">Adicionar</button>
+    </div>
+    <div class="list" id="mL" style="margin-top:12px"></div>
+  </div>
+</section>
+
+<section id="perfil" class="view">
+  <h1>Perfil</h1>
+  <p class="sub">Dados fixos e metas diárias.</p>
+  <div class="card"><div class="stack">
+    <div><label>Altura (m)</label><input id="pAlt" inputmode="decimal" placeholder="1,75"></div>
+    <div><label>Tipo sanguíneo</label><input id="pSang" placeholder="O+"></div>
+    <div><label>Meta de água (ml)</label><input id="pAgua" inputmode="numeric"></div>
+    <div><label>Meta de proteína (g)</label><input id="pProt" inputmode="numeric"></div>
+    <button class="pri" id="pSave">Salvar</button>
+  </div></div>
+  <div class="card"><h2>Ligação com a planilha</h2>
+    <div class="stack"><div><label>Chave de acesso</label><input id="pTok" placeholder="Cole a chave" autocomplete="off" autocapitalize="off"></div>
+    <button id="sinc">Sincronizar agora</button></div>
+    <p class="hint" id="ver"></p>
+  </div>
+  <div class="card"><h2>Seus dados</h2>
+    <p class="hint" style="margin:0 0 12px">Tudo é salvo na planilha "Saúde - Controle pessoal". Este aparelho guarda uma cópia para funcionar sem internet.</p>
+    <button id="exp">Exportar backup (JSON)</button>
+  </div>
+</section>
+
+<nav>
+  <button data-go="hoje" class="on"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 10v10h14V10"/></svg>Hoje</button>
+  <button data-go="treinos"><svg viewBox="0 0 24 24"><path d="M6 8v8M18 8v8M3 10v4M21 10v4M6 12h12"/></svg>Treinos</button>
+  <button data-go="saude"><svg viewBox="0 0 24 24"><path d="M12 21s-8-5-8-11a4.5 4.5 0 018-2.5A4.5 4.5 0 0120 10c0 6-8 11-8 11z"/></svg>Saúde</button>
+  <button data-go="perfil"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>Perfil</button>
+</nav>
+
+<script src="config.js"></script>
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const CFG=window.SAUDE_CONFIG||{};
+const KEY="saude.v2", QK="saude.q", TK="saude.token";
+if(location.hash.startsWith("#t=")){localStorage.setItem(TK,decodeURIComponent(location.hash.slice(3)));history.replaceState(null,"",location.pathname)}
+const pad=n=>String(n).padStart(2,"0");
+const hojeISO=()=>{const d=new Date();return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())};
+const agora=()=>{const d=new Date();return pad(d.getHours())+":"+pad(d.getMinutes())};
+const fmtD=iso=>iso?String(iso).split("-").reverse().join("/"):"";
+const num=v=>parseFloat(String(v).replace(",","."))||0;
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const item=(a,b)=>`<div class="item"><span>${a}</span><span>${b}</span></div>`;
+
+let S=JSON.parse(localStorage.getItem(KEY)||"null")||{perfil:{altura:"",sangue:"",metaAgua:3000,metaProt:140},dias:{},series:[],pesos:[],exames:[],meds:[],treinos:[]};
+const save=()=>localStorage.setItem(KEY,JSON.stringify(S));
+const dia=()=>S.dias[hojeISO()]||(S.dias[hojeISO()]={agua:0,prot:[],passos:"",cardio:""});
+
+/* ---------- sincronização com a planilha ---------- */
+const token=()=>localStorage.getItem(TK)||"";
+const queue=()=>JSON.parse(localStorage.getItem(QK)||"[]");
+let flushing=false, syncMsg="";
+function setStatus(m){syncMsg=m||syncMsg;const q=queue().length;
+  $("#sync").textContent=!CFG.url?"Sem ligação com a planilha":!token()?"Falta a chave de acesso (Perfil)":q?`${q} pendente(s) · ${syncMsg||"sincronizando"}`:(syncMsg||"")}
+async function post(body){
+  const r=await fetch(CFG.url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({token:token(),...body})});
+  return r.json();
+}
+async function flush(){
+  if(flushing||!CFG.url||!token())return;
+  const q=queue();if(!q.length)return;
+  flushing=true;
+  try{const r=await post({ops:q});
+    if(r.ok){localStorage.setItem(QK,JSON.stringify(queue().slice(q.length)));syncMsg="Salvo na planilha"}
+    else syncMsg=r.error==="unauthorized"?"Chave inválida":"Erro ao salvar";
+  }catch(e){syncMsg="Sem conexão"}
+  flushing=false;setStatus();
+  if(syncMsg==="Salvo na planilha"&&queue().length)flush();
+}
+function enqueue(op){const q=queue();q.push(op);localStorage.setItem(QK,JSON.stringify(q));setStatus("Enviando...");flush()}
+async function pull(){
+  if(!CFG.url||!token()){setStatus();return}
+  await flush();
+  if(queue().length){setStatus();return}
+  try{
+    const r=await fetch(CFG.url+"?token="+encodeURIComponent(token())+"&t="+Date.now());
+    const j=await r.json();
+    if(j.error){syncMsg="Chave inválida";setStatus();return}
+    fromSnapshot(j.tabs);save();render();syncMsg="Sincronizado "+agora();setStatus();
+  }catch(e){syncMsg="Sem conexão (mostrando dados salvos)";setStatus()}
+}
+function fromSnapshot(T){
+  const dias={};const d=k=>dias[k]||(dias[k]={agua:0,prot:[],passos:"",cardio:""});
+  (T["Água"]||[]).forEach(r=>{if(r[0])d(r[0]).agua+=num(r[2])});
+  (T["Proteína"]||[]).forEach(r=>{if(r[0]&&num(r[3]))d(r[0]).prot.push({n:r[2]||"",g:num(r[3])})});
+  (T["Cardio e passos"]||[]).forEach(r=>{if(r[0]){const x=d(r[0]);if(r[1]!=="")x.passos=r[1];if(r[2]!=="")x.cardio=r[2]}});
+  const series=[],tr={};
+  (T["Treinos"]||[]).forEach(r=>{if(!r[0])return;tr[r[0]+"|"+r[1]]={data:r[0],nome:r[1]};
+    if(r[2])series.push({data:r[0],treino:r[1],ex:r[2],n:num(r[3]),kg:num(r[4]),rep:num(r[5])})});
+  const treinos=Object.values(tr).sort((a,b)=>a.data<b.data?-1:1);
+  const pesos=(T["Peso e medidas"]||[]).filter(r=>r[0]&&num(r[1])).map(r=>({data:r[0],kg:num(r[1])})).sort((a,b)=>a.data<b.data?-1:1);
+  const exames=(T["Exames"]||[]).filter(r=>r[1]).map(r=>({n:r[1],data:r[0],prox:r[6],alt:r[4]==="Sim"?(r[3]||"Alterado"):""}));
+  const meds=[...(T["Vitaminas"]||[]).filter(r=>r[0]).map(r=>({n:r[0],dose:r[1],tipo:"Vitamina"})),
+    ...(T["Remédios"]||[]).filter(r=>r[0]).map(r=>({n:r[0],dose:r[1],tipo:r[3]==="Sim"?"Remédio controlado":"Remédio"}))];
+  const P={};(T["Perfil"]||[]).forEach(r=>P[r[0]]=r[1]);
+  S={perfil:{altura:P["Altura (m)"]!==undefined?String(P["Altura (m)"]).replace(".",","):"",sangue:P["Tipo sanguíneo"]||"",
+      metaAgua:num(P["Meta de água (ml)"])||3000,metaProt:num(P["Meta de proteína (g)"])||140},dias,series,pesos,exames,meds,treinos};
+}
+
+/* ---------- navegação ---------- */
+function go(v){$$(".view").forEach(e=>e.classList.toggle("on",e.id===v));$$("nav button").forEach(b=>b.classList.toggle("on",b.dataset.go===v));scrollTo(0,0)}
+$$("[data-go]").forEach(b=>b.onclick=()=>go(b.dataset.go));
+
+function proximoTreino(){
+  const nomes=["A - Peito / Ombro","B - Costas / Ombro","C - Perna Completa","D - Tríceps / Bíceps"];
+  const ult=S.treinos.length?S.treinos[S.treinos.length-1]:null;
+  if(!ult)return nomes[0];const i="ABCD".indexOf(ult.nome[0]);return nomes[(i+1)%4];
+}
+function render(){
+  const d=dia(),p=S.perfil;
+  $("#data").textContent=new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"});
+  $("#aguaV").textContent=d.agua;$("#aguaM").textContent=p.metaAgua;$("#aguaB").style.width=Math.min(100,d.agua/p.metaAgua*100)+"%";
+  const tp=d.prot.reduce((a,x)=>a+x.g,0);
+  $("#protV").textContent=Math.round(tp);$("#protM").textContent=p.metaProt;$("#protB").style.width=Math.min(100,tp/p.metaProt*100)+"%";
+  $("#protL").innerHTML=d.prot.map(x=>item(esc(x.n||"Item"),x.g+" g")).join("");
+  const feito=S.treinos.find(t=>t.data===hojeISO());
+  $("#treinoHoje").textContent=feito?feito.nome:proximoTreino();
+  $("#treinoSub").textContent=feito?"Treino de hoje registrado":"Sugestão pela sequência A-B-C-D";
+  if(document.activeElement!==$("#passos"))$("#passos").value=d.passos;
+  if(document.activeElement!==$("#cardio"))$("#cardio").value=d.cardio;
+  const ps=S.pesos.length?S.pesos[S.pesos.length-1].kg:null;
+  $("#pesoV").textContent=ps??"—";
+  const h=num(p.altura);$("#imc").textContent=ps&&h?(ps/(h*h)).toFixed(1):"—";
+  const sh=S.series.filter(s=>s.data===hojeISO());
+  $("#seriesL").innerHTML=sh.length?sh.map(s=>item(esc(s.ex)+" · série "+s.n,s.kg+" kg × "+s.rep)).join(""):'<p class="hint">Nenhuma série hoje.</p>';
+  $("#histL").innerHTML=[...S.treinos].reverse().map(t=>item(esc(t.nome),fmtD(t.data))).join("")||'<p class="hint">Nenhum treino ainda.</p>';
+  $("#exs").innerHTML=[...new Set(S.series.map(s=>s.ex))].map(e=>`<option value="${esc(e)}">`).join("");
+  $("#eL").innerHTML=S.exames.length?S.exames.map(e=>{
+    const venc=e.prox&&e.prox<hojeISO();
+    return `<div class="item"><span>${esc(e.n)}<br><small style="color:var(--muted)">${fmtD(e.data)}${e.prox?" · próximo "+fmtD(e.prox):""}</small></span><span>${e.alt?`<span class="tag bad">${esc(e.alt)}</span>`:'<span class="tag ok">Ok</span>'}${venc?'<br><span class="tag bad">Vencido</span>':""}</span></div>`}).join(""):'<p class="hint">Nenhum exame cadastrado.</p>';
+  $("#mL").innerHTML=S.meds.length?S.meds.map(m=>item(esc(m.n)+"<br><small style='color:var(--muted)'>"+esc(m.dose||"")+"</small>",`<span class="tag">${esc(m.tipo)}</span>`)).join(""):'<p class="hint">Nada cadastrado.</p>';
+  if(document.activeElement.closest&&!document.activeElement.closest("#perfil")){$("#pAlt").value=p.altura;$("#pSang").value=p.sangue;$("#pAgua").value=p.metaAgua;$("#pProt").value=p.metaProt}
+  $("#pTok").value=token()?"••••••••":"";
+  $("#ver").textContent="Versão "+(CFG.versao||"—");
+}
+
+/* ---------- ações ---------- */
+$$("[data-agua]").forEach(b=>b.onclick=()=>{const v=Number(b.dataset.agua),d=dia();
+  if(v<0&&d.agua<=0)return;
+  d.agua=Math.max(0,d.agua+v);save();render();enqueue({op:"append",tab:"Água",row:[hojeISO(),agora(),v]})});
+$("#protAdd").onclick=()=>{const g=num($("#protG").value);if(!g)return;const n=$("#protN").value.trim();
+  dia().prot.push({n,g});$("#protN").value=$("#protG").value="";save();render();
+  enqueue({op:"append",tab:"Proteína",row:[hojeISO(),"",n,g,""]})};
+const upCardio=()=>{const d=dia();enqueue({op:"upsert",tab:"Cardio e passos",key:hojeISO(),cols:{1:d.passos===""?"":num(d.passos),2:d.cardio===""?"":num(d.cardio),5:"App"}})};
+$("#passos").onchange=e=>{dia().passos=e.target.value;save();upCardio()};
+$("#cardio").onchange=e=>{dia().cardio=e.target.value;save();upCardio()};
+$("#pesoAdd").onclick=()=>{const kg=num($("#pesoN").value);if(!kg)return;
+  S.pesos.push({data:hojeISO(),kg});$("#pesoN").value="";save();render();
+  enqueue({op:"append",tab:"Peso e medidas",row:[hojeISO(),kg]})};
+$("#exAdd").onclick=()=>{
+  const ex=$("#exN").value.trim(),kg=num($("#exC").value),rep=num($("#exR").value),tipo=$("#tipo").value;
+  if(!ex||!rep){$("#exHint").textContent="Preencha exercício e repetições.";return}
+  const n=S.series.filter(s=>s.data===hojeISO()&&s.ex===ex).length+1;
+  S.series.push({data:hojeISO(),treino:tipo,ex,n,kg,rep});
+  if(!S.treinos.find(t=>t.data===hojeISO()))S.treinos.push({data:hojeISO(),nome:tipo});
+  $("#exR").value="";$("#exHint").textContent="Série "+n+" de "+ex+" registrada.";save();render();
+  enqueue({op:"append",tab:"Treinos",row:[hojeISO(),tipo,ex,n,kg,rep,"",""]})};
+$("#eAdd").onclick=()=>{const n=$("#eN").value.trim();if(!n)return;
+  const e={n,data:$("#eD").value,prox:$("#eP").value,alt:$("#eR").value.trim()};
+  S.exames.push(e);["#eN","#eD","#eP","#eR"].forEach(i=>$(i).value="");save();render();
+  enqueue({op:"append",tab:"Exames",row:[e.data,e.n,"",e.alt,e.alt?"Sim":"Não","",e.prox,""]})};
+$("#mAdd").onclick=()=>{const n=$("#mN").value.trim();if(!n)return;
+  const m={n,dose:$("#mD").value.trim(),tipo:$("#mT").value};
+  S.meds.push(m);$("#mN").value=$("#mD").value="";save();render();
+  enqueue(m.tipo==="Vitamina"?{op:"append",tab:"Vitaminas",row:[m.n,m.dose,"",hojeISO(),"",""]}
+    :{op:"append",tab:"Remédios",row:[m.n,m.dose,"",m.tipo==="Remédio controlado"?"Sim":"Não",hojeISO(),"","",""]})};
+$("#pSave").onclick=()=>{
+  S.perfil={altura:$("#pAlt").value,sangue:$("#pSang").value,metaAgua:num($("#pAgua").value)||3000,metaProt:num($("#pProt").value)||140};
+  save();render();
+  const up=(k,v)=>enqueue({op:"upsert",tab:"Perfil",key:k,cols:{1:v}});
+  up("Altura (m)",num(S.perfil.altura)||"");up("Tipo sanguíneo",S.perfil.sangue);
+  up("Meta de água (ml)",S.perfil.metaAgua);up("Meta de proteína (g)",S.perfil.metaProt);
+  $("#pSave").textContent="Salvo";setTimeout(()=>$("#pSave").textContent="Salvar",1200)};
+$("#pTok").onfocus=e=>{if(e.target.value.startsWith("•"))e.target.value=""};
+$("#pTok").onchange=e=>{const v=e.target.value.trim();if(v){localStorage.setItem(TK,v);pull()}};
+$("#sinc").onclick=()=>pull();
+$("#exp").onclick=()=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,2)],{type:"application/json"}));a.download="saude-backup.json";a.click()};
+
+render();setStatus();pull();
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)pull()});
+window.addEventListener("online",()=>pull());
+if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js");
+</script>
+</body>
+</html>
