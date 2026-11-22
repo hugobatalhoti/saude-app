@@ -400,7 +400,6 @@ html.vt-prev::view-transition-new(root){animation:vtPrevIn .42s var(--ease) both
     <button class="btn solid full" id="protAdd"><svg class="i"><use href="#i-add"/></svg>Adicionar alimento</button>
   </div>
 
-  <div class="card" id="treinoCard"></div>
   <div class="card" id="sonoCard"></div>
 
   <h2>Esta semana</h2>
@@ -410,7 +409,6 @@ html.vt-prev::view-transition-new(root){animation:vtPrevIn .42s var(--ease) both
     </div>
     <div id="weekChart"></div>
   </div>
-  <div class="card" id="weekTrain"></div>
 </section>
 
 <!-- ============ TREINOS ============ -->
@@ -537,6 +535,7 @@ const trOf=nome=>TREINOS.find(t=>t.k===String(nome||"")[0])||{k:"?",full:nome,n:
    TACO 4ª ed. (NEPA/Unicamp, 2011) e USDA FoodData Central (SR Legacy). Porções caseiras aproximadas. */
 const ALIM=[
  {n:"Ovo cozido",e:"🥚",u:"unidade",us:"unidades",gu:50,p:13.3,c:"o",f:"TACO 488"},
+ {n:"Ovo mexido",e:"🍳",u:"ovo",us:"ovos",gu:60,p:10.0,c:"o",f:"USDA 172187",obs:"Ovo mexido leva leite e gordura, por isso rende menos proteína por grama que o cozido."},
  {n:"Clara de ovo",e:"🥚",u:"clara",us:"claras",gu:30,p:13.4,c:"o",f:"TACO 486"},
  {n:"Leite zero lactose",e:"🥛",u:"copo de 200 ml",us:"copos de 200 ml",gu:200,p:3.1,c:"o",f:"Rótulo Piracanjuba (Open Food Facts)",obs:"Rótulo do leite zero lactose Piracanjuba: 6,2 g de proteína por copo de 200 ml. Outras marcas ficam perto disso."},
   {n:"Iogurte natural",e:"🥣",u:"pote de 170 g",us:"potes de 170 g",gu:170,p:4.1,c:"o",f:"TACO 448"},
@@ -547,6 +546,7 @@ const ALIM=[
  {n:"Whey protein",e:"🥤",u:"scoop de 30 g",us:"scoops de 30 g",gu:30,p:78.1,c:"o",f:"USDA 173180",obs:"O valor varia por marca. Confira o rótulo do seu."},
  {n:"Peito de frango grelhado",e:"🍗",u:"filé médio",us:"filés médios",gu:100,p:32.0,c:"c",f:"TACO 410"},
  {n:"Coxa de frango assada",e:"🍗",u:"coxa",us:"coxas",gu:70,p:28.5,c:"c",f:"TACO 396"},
+ {n:"Coxinha de frango (pequena)",e:"🍗",u:"coxinha pequena",us:"coxinhas pequenas",gu:30,p:9.6,c:"c",f:"TACO, coxinha de frango frita",obs:"Considera coxinha de salgadinho, cerca de 30 g. Varia conforme o recheio."},
  {n:"Patinho grelhado",e:"🥩",u:"bife",us:"bifes",gu:100,p:35.9,c:"c",f:"TACO 377"},
  {n:"Alcatra grelhada",e:"🥩",u:"bife",us:"bifes",gu:100,p:31.9,c:"c",f:"TACO 370"},
  {n:"Carne moída",e:"🥩",u:"colher de sopa",us:"colheres de sopa",gu:25,p:26.7,c:"c",f:"TACO 326"},
@@ -559,6 +559,8 @@ const ALIM=[
  {n:"Lentilha",e:"🫘",u:"concha",us:"conchas",gu:100,p:6.3,c:"g",f:"TACO 577"},
  {n:"Grão-de-bico",e:"🫘",u:"concha",us:"conchas",gu:100,p:8.9,c:"g",f:"USDA 173757"},
  {n:"Arroz branco",e:"🍚",u:"colher de servir",us:"colheres de servir",gu:50,p:2.5,c:"g",f:"TACO 3"},
+ {n:"Macarrão cozido",e:"🍝",u:"pegador",us:"pegadores",gu:100,p:4.8,c:"g",f:"TACO, macarrão cozido"},
+ {n:"Pão de forma",e:"🍞",u:"fatia",us:"fatias",gu:25,p:12.0,c:"g",f:"TACO, pão de forma"},
  {n:"Pão francês",e:"🥖",u:"unidade",us:"unidades",gu:50,p:8.0,c:"g",f:"TACO 53"},
  {n:"Aveia em flocos",e:"🌾",u:"colher de sopa",us:"colheres de sopa",gu:15,p:13.9,c:"g",f:"TACO 7"},
  {n:"Pasta de amendoim",e:"🥜",u:"colher de sopa",us:"colheres de sopa",gu:15,p:22.2,c:"g",f:"USDA 172470"}];
@@ -677,7 +679,10 @@ function trocaTela(v,el,parent){
   atual=v;scrollTo(0,0);onScroll();
   const h="#"+(parent?parent+"/"+v:v);if(location.hash!==h)history.replaceState(null,"",location.pathname+location.search+h);
 }
-$$("[data-go]").forEach(b=>b.onclick=()=>{if(b.dataset.go===atual)scrollTo({top:0,behavior:"smooth"});else go(b.dataset.go)});
+const ORDEM_ABAS=["resumo","treinos","evolucao","perfil"];
+$$("[data-go]").forEach(b=>b.onclick=()=>{if(b.dataset.go===atual)scrollTo({top:0,behavior:"smooth"});else{
+  const de=ORDEM_ABAS.indexOf(document.getElementById(atual).dataset.parent||atual),para=ORDEM_ABAS.indexOf(b.dataset.go);
+  go(b.dataset.go,de<0||para<0||de===para?{}:{lado:para>de?"next":"prev"})}});
 $("#back").onclick=()=>go("perfil");
 $("#miniAv").onclick=()=>go("perfil");
 $("#topAct").onclick=()=>atual==="exames"?sheetExame():sheetMed();
@@ -780,7 +785,7 @@ function recolher(el,cb){
   el.style.height="0px";el.style.opacity="0";el.style.marginTop="0px";el.style.paddingTop="0px";el.style.paddingBottom="0px";el.style.borderTopWidth="0px";
   setTimeout(cb,460);
 }
-let novoItem=null,treinoRecem=false;
+let novoItem=null;
 function renderResumo(){
   const d=dia(),p=S.perfil;
   $("#data").textContent=new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"}).replace(/^./,c=>c.toUpperCase());
@@ -801,27 +806,6 @@ function renderResumo(){
   novoItem=null;
   $$("[data-rm]").forEach(b=>b.onclick=()=>{const i=b.dataset.rm.lastIndexOf("|");sheetRemover(b.dataset.rm.slice(0,i),num(b.dataset.rm.slice(i+1)),b)});
   tile("cardio",num(d.cardio),p.metaCardio,"min");
-  // treino
-  const feito=trHoje(),selTr=trSel();
-  const tc=$("#treinoCard");
-  if(feito){const t=trOf(feito.nome),ns=S.series.filter(s=>s.data===hojeISO()).length;
-    tc.innerHTML=`<div class="mh">${ico("barbell")}Treino<span class="r"><span class="badge${treinoRecem?" pop":""}">${ico("checkmark")}Feito hoje</span></span></div>
-      <div class="tr-name">${t.k} · ${esc(t.n)}</div><div class="tr-sub">${ns?`${ns} ${ns>1?"séries registradas":"série registrada"}`:"Marcado como feito, sem séries"}</div>
-      <button class="btn full" data-go2="treinos">${ns?"Ver séries":"Registrar séries"}</button>`;
-    if(treinoRecem){tc.style.animation="none";void tc.offsetWidth;tc.style.animation="fadeUp .45s var(--out)";treinoRecem=false}
-  }else{const t=TREINOS.find(x=>x.k===selTr),sug=proximoTreino().k===selTr;
-    tc.innerHTML=`<div class="mh">${ico("barbell")}Treino<span class="r">${sug?"Sugestão pela sequência":"Escolhido por você"}</span></div>
-      <div class="tr-name">${t.k} · ${esc(t.n)}</div>
-      <div class="seg" role="tablist" aria-label="Escolher treino">${TREINOS.map(x=>`<button data-tr="${x.k}" class="${x.k===selTr?"on":""}" role="tab" aria-label="Treino ${x.k}, ${x.n}">${x.k}</button>`).join("")}</div>
-      <div class="row2"><button class="btn solid" id="trDone">${ico("checkmark")}Marcar feito</button><button class="btn" data-go2="treinos">Registrar séries</button></div>`;
-    $$("[data-tr]").forEach(b=>b.onclick=()=>{if(b.classList.contains("on"))return;selTrUser=b.dataset.tr;const x=TREINOS.find(t=>t.k===selTrUser),seg=b.parentElement;
-      seg.querySelectorAll("button").forEach(z=>z.classList.toggle("on",z===b));segSync(seg);
-      const nm=tc.querySelector(".tr-name");nm.textContent=`${x.k} · ${x.n}`;nm.classList.remove("swapin");void nm.offsetWidth;nm.classList.add("swapin");
-      tc.querySelector(".mh .r").textContent=proximoTreino().k===x.k?"Sugestão pela sequência":"Escolhido por você";renderTreinos()});
-    $("#trDone").onclick=()=>{const t=TREINOS.find(x=>x.k===trSel());treinoRecem=true;S.treinos.push({data:hojeISO(),nome:t.full});save();render();celebrar("Treino concluído",`${t.k} · ${t.n}`);
-      enqueue({op:"append",tab:"Treinos",row:[hojeISO(),t.full,"","","","","","Marcado no Resumo"]})};
-  }
-  $$("[data-go2]").forEach(b=>b.onclick=()=>go(b.dataset.go2));
   const sn=sonoDe(hojeISO()),ok=sn&&sn.horas>=7&&sn.horas<=9;
   $("#sonoCard").innerHTML=`<div class="mh">${ico("moon")}Sono<span class="r">${sn?(sn.fonte==="Saúde"?"Do app Saúde":"Noite passada"):""}</span></div>
     ${sn?`<div class="val">${fmtHtml(sn.horas)}</div><p class="cap" style="margin-top:0">${sn.dormiu} – ${sn.acordou}${sn.q?" · qualidade "+esc(sn.q.toLowerCase()):""}</p>${sn.est?`<p class="cap" style="margin-top:0">${[["profundo","Profundo"],["rem","REM"],["essencial","Essencial"]].filter(([k])=>sn.est[k]).map(([k,n])=>n+" "+fmtH(sn.est[k])).join(" · ")}</p>`:""}
@@ -842,10 +826,6 @@ function renderSemana(){
     <p class="cap" style="margin-top:0">${weekM==="cardio"?`${n0(W.v.reduce((a,b)=>a+b,0))} min na semana`:`Média de ${n0(media)} ${W.u} por dia`} · meta batida em ${bat} de 7 dias</p>${barChart(W.v,W.m,W.u,anim,"semana")}
     <p class="lfoot" style="margin:8px 0 0">Toque numa barra para ver o dia. A linha tracejada é a meta.</p>`;
   $$("#weekSeg button").forEach(b=>{b.classList.toggle("on",b.dataset.w===weekM);b.setAttribute("aria-selected",b.dataset.w===weekM)});segSync($("#weekSeg"));
-  const nT=ds.filter(k=>S.treinos.some(t=>t.data===k)).length;
-  $("#weekTrain").innerHTML=`<div class="mh">${ico("barbell")}Treinos<span class="r">Últimos 7 dias</span></div>
-    <div class="val">${nT}<small>${nT===1?"treino":"treinos"}</small></div>
-    <div class="weekdots">${ds.map((k,i)=>{const t=S.treinos.find(x=>x.data===k);return `<span><i class="${t?"on":""} ${i===6?"today":""}">${t?trOf(t.nome).k:""}</i>${i===6?"Hoje":LETRA[dOf(k).getDay()]}</span>`}).join("")}</div>`;
 }
 $$("#weekSeg button").forEach(b=>b.onclick=()=>{if(weekM===b.dataset.w)return;weekM=b.dataset.w;animSemana=true;renderSemana()});
 
