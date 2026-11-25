@@ -448,6 +448,7 @@ html.vt-prev::view-transition-new(root){animation:vtPrevIn .42s var(--ease) both
   </div>
   <h2>Séries de hoje</h2>
   <div class="card" id="seriesL"></div>
+  <div class="list" id="kcalL" style="margin-top:12px"></div>
   <h2>Histórico</h2>
   <div class="list" id="histL"></div>
 </section>
@@ -909,6 +910,9 @@ function renderTreinos(){
   if(sh.length){const g={};sh.forEach(s=>(g[s.ex]=g[s.ex]||[]).push(s));
     $("#seriesL").innerHTML=`<div class="exg">${Object.entries(g).map(([ex,ss])=>`<div class="eh">${esc(ex)}</div>${ss.map(s=>`<div class="ser"><span>Série ${s.n}</span><b>${n1(s.kg)} kg × ${s.rep}</b></div>`).join("")}`).join("")}</div>`;
   }else $("#seriesL").innerHTML=`<p class="empty" style="margin:0">Nenhuma série hoje. As que você registrar aparecem aqui.</p>`;
+  const kc=num(diaDe(hojeISO()).kcal);
+  $("#kcalL").innerHTML=`<button class="li" id="kcalBtn" style="--c:var(--gray)"><span class="ic">${ico("pulse")}</span><span class="tx">Calorias gastas hoje</span><span class="d">${kc?n0(kc)+" kcal":"Adicionar"}</span>${ico("chevron-forward","i chev")}</button>`;
+  $("#kcalBtn").onclick=sheetKcal;
   const hist=[...S.treinos].reverse().slice(0,12);
   $("#histL").innerHTML=hist.length?hist.map(h=>{const t=trOf(h.nome),ns=S.series.filter(s=>s.data===h.data).length;
     return `<div class="li"><span class="letter">${t.k}</span><span class="tx">${esc(t.n)}<small>${[ns?`${ns} séries`:"",h.dur?`${h.dur} min`:"",S.dias[h.data]?.kcal?`${n0(S.dias[h.data].kcal)} kcal`:""].filter(Boolean).join(" · ")||"Sem séries registradas"}</small></span><span class="d">${fmtDia(h.data)}</span></div>`}).join("")
@@ -1233,6 +1237,9 @@ function sheetNumero({title,label,un,valor,passo,dec,cor,onSave,nota=""}){
 function sheetPeso(){const u=S.pesos[S.pesos.length-1];
   sheetNumero({title:"Registrar peso",label:"Peso",un:"kg",valor:u?u.kg:70,passo:.1,dec:true,cor:"weight",nota:"Para comparar melhor, pese-se sempre no mesmo horário.",
     onSave:kg=>{S.pesos.push({data:hojeISO(),kg});S.pesos.sort((a,b)=>a.data<b.data?-1:1);save();render();enqueue({op:"append",tab:"Peso e medidas",row:[hojeISO(),kg]})}})}
+function sheetKcal(){const d=diaDe(hojeISO());
+  sheetNumero({title:"Calorias gastas hoje",label:"Calorias gastas",un:"kcal hoje",valor:num(d.kcal)||400,passo:10,dec:false,cor:"cardio",nota:"Some musculação e cardio. O número aparece no resumo do treino, no app da academia e na esteira.",
+    onSave:v=>{d.kcal=Math.round(v);save();render();enqueue({op:"upsert",tab:"Cardio e passos",key:hojeISO(),cols:{4:d.kcal,5:"App"}})}})}
 function sheetPassos(){const d=diaDe(hojeISO());
   sheetNumero({title:"Registrar passos",label:"Passos de hoje",un:"passos hoje",valor:num(d.passos)||8000,passo:500,dec:false,cor:"steps",nota:"O número está no app Saúde do iPhone, em Passos.",
     onSave:v=>{d.passos=Math.round(v);save();render();upCardio(hojeISO())}})}
