@@ -225,13 +225,6 @@ h2{font:700 22px/28px var(--sans);margin:32px 0 12px}
 .chart.draw polygon,.chart.draw circle{animation:fadeIn .6s .4s both}
 @keyframes draw{from{stroke-dashoffset:1000}to{stroke-dashoffset:0}}
 @keyframes fadeIn{from{opacity:0}}
-.gtog{display:flex;justify-content:flex-end;margin-top:12px}
-.gtog>div{display:inline-grid;grid-auto-flow:column;gap:2px;background:var(--fill);border-radius:999px;padding:2px}
-.gtog button{width:40px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:999px;color:var(--label2);transition:background .25s,color .25s,transform .2s var(--out)}
-.gtog button:active{transform:scale(.9)}
-.gtog button.on{background:var(--seg-on);color:var(--label)}
-.gtog .i{width:18px;height:18px}
-.gtog+.chart{margin-top:8px}
 .days{display:grid;grid-template-columns:repeat(7,1fr);margin-top:4px;font:400 12px/16px var(--sans);color:var(--label2);text-align:center}
 .days b{font-weight:600;color:var(--label)}
 .cap{font:400 15px/20px var(--sans);color:var(--label2);margin:4px 0 0}
@@ -765,9 +758,7 @@ document.addEventListener("click",e=>{const hit=e.target.closest(".hit");if(!hit
 
 /* modo do gráfico dos 7 dias (barras ou linha), guardado no aparelho */
 let GMODO=localStorage.getItem("saude.grafico")==="linha"?"linha":"barras";
-const gtog=()=>`<div class="gtog"><div role="group" aria-label="Tipo de gráfico"><button data-gm="barras" class="${GMODO==="barras"?"on":""}" aria-label="Gráfico de barras" aria-pressed="${GMODO==="barras"}">${ico("stats-chart")}</button><button data-gm="linha" class="${GMODO==="linha"?"on":""}" aria-label="Gráfico de linha" aria-pressed="${GMODO==="linha"}">${ico("trending-up")}</button></div></div>`;
-document.addEventListener("click",e=>{const b=e.target.closest("[data-gm]");if(!b||b.dataset.gm===GMODO)return;GMODO=b.dataset.gm;localStorage.setItem("saude.grafico",GMODO);haptic(true);animSemana=true;animEvo=true;renderSemana();renderEvolucao()});
-function grafico(vals,meta,unidade,anim,id,fmt=n0,pulaZero=false){return gtog()+(GMODO==="linha"?lineSeries(vals,meta,unidade,anim,id,fmt,pulaZero):barChart(vals,meta,unidade,anim,id,fmt))}
+function grafico(vals,meta,unidade,anim,id,fmt=n0,pulaZero=false){return (GMODO==="linha"?lineSeries(vals,meta,unidade,anim,id,fmt,pulaZero):barChart(vals,meta,unidade,anim,id,fmt))}
 /* linha dos 7 dias: pontos no centro de cada barra, para o rótulo dos dias continuar alinhado. Dias sem registro de sono/passos ficam sem ponto. */
 function lineSeries(vals,meta,unidade,anim,id,fmt,pulaZero){
   const W=320,H=120,gap=12,bw=(W-gap*6)/7,sel=selBar[id]??6,ds=lastDays(7),cor="var(--ink)";
@@ -995,6 +986,7 @@ function renderPerfil(){
     .map(([k,n,v])=>`<button class="li" data-dado="${k}"><span class="tx">${n}</span><span class="d">${esc(v)}</span>${ico("chevron-forward","i chev")}</button>`).join("");
   const tema={auto:"Automática",light:"Clara",dark:"Escura"}[localStorage.getItem(THK)||"auto"];
   $("#pApp").innerHTML=`<button class="li" id="pSinc" style="--c:var(--tint)"><span class="ic">${ico("sync")}</span><span class="tx">Sincronizar agora</span><span class="d" id="pSync"></span></button>
+    <button class="li" id="pGraf" style="--c:var(--train)"><span class="ic">${ico("stats-chart")}</span><span class="tx">Gráficos</span><span class="d">${GMODO==="linha"?"Linha":"Barras"}</span>${ico("chevron-forward","i chev")}</button>
     <button class="li" id="pKey" style="--c:var(--gray)"><span class="ic">${ico("key")}</span><span class="tx">Chave de acesso</span><span class="d">${token()?"Configurada":"Falta"}</span>${ico("chevron-forward","i chev")}</button>
     <button class="li" id="pTema" style="--c:var(--train)"><span class="ic">${ico("moon")}</span><span class="tx">Aparência</span><span class="d">${tema}</span>${ico("chevron-forward","i chev")}</button>
     <button class="li" id="pExp" style="--c:var(--gray)"><span class="ic">${ico("download")}</span><span class="tx">Exportar backup</span></button>`;
@@ -1002,7 +994,7 @@ function renderPerfil(){
   $$("[data-push]").forEach(b=>b.onclick=()=>go(b.dataset.push));
   $$("[data-meta]").forEach(b=>b.onclick=()=>sheetMeta(b.dataset.meta));
   $$("[data-dado]").forEach(b=>b.onclick=()=>sheetDado(b.dataset.dado));
-  $("#pSinc").onclick=()=>pull();$("#pKey").onclick=sheetChave;$("#pTema").onclick=sheetTema;
+  $("#pSinc").onclick=()=>pull();$("#pKey").onclick=sheetChave;$("#pTema").onclick=sheetTema;$("#pGraf").onclick=sheetGraficos;
   $("#pExp").onclick=()=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,2)],{type:"application/json"}));a.download="saude-backup.json";a.click()};
   setStatus();
 }
@@ -1260,6 +1252,11 @@ function sheetChave(){openSheet({title:"Chave de acesso",body:`<p class="lfoot" 
   <input class="field" id="kV" placeholder="Cole a chave" autocomplete="off" autocapitalize="off" spellcheck="false" style="margin-top:12px" aria-label="Chave de acesso">
   <button class="btn solid full big" id="kOk" disabled>Salvar e sincronizar</button>`,
   onOpen:()=>{$("#kV").oninput=e=>$("#kOk").disabled=!e.target.value.trim();$("#kOk").onclick=()=>{localStorage.setItem(TK,$("#kV").value.trim());closeSheet();renderPerfil();pull()}}})}
+function sheetGraficos(){
+  openSheet({title:"Gráficos",body:`<div class="list noicon" style="margin-top:16px">${[["barras","Barras","Uma barra por dia"],["linha","Linha","Pontos ligados por uma linha"]].map(([k,n,s])=>
+    `<button class="li" data-gm="${k}"><span class="tx">${n}<small>${s}</small></span>${k===GMODO?`<span style="color:var(--tint)">${ico("checkmark")}</span>`:""}</button>`).join("")}</div><p class="lfoot">Vale para os gráficos de 7 dias em Resumo e Evolução.</p>`,
+    onOpen:()=>$$("[data-gm]").forEach(b=>b.onclick=()=>{GMODO=b.dataset.gm;localStorage.setItem("saude.grafico",GMODO);animSemana=true;animEvo=true;closeSheet();render()})});
+}
 function sheetTema(){const cur=localStorage.getItem(THK)||"auto";
   openSheet({title:"Aparência",body:`<div class="list noicon" style="margin-top:16px">${[["auto","Automática","Segue o modo claro ou escuro do iPhone"],["light","Clara",""],["dark","Escura",""]].map(([k,n,s])=>
     `<button class="li" data-tema="${k}"><span class="tx">${n}${s?`<small>${s}</small>`:""}</span>${k===cur?`<span style="color:var(--tint)">${ico("checkmark")}</span>`:""}</button>`).join("")}</div>`,
