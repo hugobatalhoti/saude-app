@@ -225,6 +225,13 @@ h2{font:700 22px/28px var(--sans);margin:32px 0 12px}
 .chart.draw polygon,.chart.draw circle{animation:fadeIn .6s .4s both}
 @keyframes draw{from{stroke-dashoffset:1000}to{stroke-dashoffset:0}}
 @keyframes fadeIn{from{opacity:0}}
+.gtog{display:flex;justify-content:flex-end;margin-top:12px}
+.gtog>div{display:inline-grid;grid-auto-flow:column;gap:2px;background:var(--fill);border-radius:999px;padding:2px}
+.gtog button{width:40px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:999px;color:var(--label2);transition:background .25s,color .25s,transform .2s var(--out)}
+.gtog button:active{transform:scale(.9)}
+.gtog button.on{background:var(--seg-on);color:var(--label)}
+.gtog .i{width:18px;height:18px}
+.gtog+.chart{margin-top:8px}
 .days{display:grid;grid-template-columns:repeat(7,1fr);margin-top:4px;font:400 12px/16px var(--sans);color:var(--label2);text-align:center}
 .days b{font-weight:600;color:var(--label)}
 .cap{font:400 15px/20px var(--sans);color:var(--label2);margin:4px 0 0}
@@ -756,6 +763,30 @@ function barChart(vals,meta,unidade,anim,id,fmt=n0){
 document.addEventListener("click",e=>{const hit=e.target.closest(".hit");if(!hit)return;const id=hit.dataset.chart,i=+hit.dataset.i;if(selBar[id]===i)return;selBar[id]=i;selUser[id]=true;haptic(true);
   if(id==="semana")renderSemana();else renderEvolucao()});
 
+/* modo do gráfico dos 7 dias (barras ou linha), guardado no aparelho */
+let GMODO=localStorage.getItem("saude.grafico")==="linha"?"linha":"barras";
+const gtog=()=>`<div class="gtog"><div role="group" aria-label="Tipo de gráfico"><button data-gm="barras" class="${GMODO==="barras"?"on":""}" aria-label="Gráfico de barras" aria-pressed="${GMODO==="barras"}">${ico("stats-chart")}</button><button data-gm="linha" class="${GMODO==="linha"?"on":""}" aria-label="Gráfico de linha" aria-pressed="${GMODO==="linha"}">${ico("trending-up")}</button></div></div>`;
+document.addEventListener("click",e=>{const b=e.target.closest("[data-gm]");if(!b||b.dataset.gm===GMODO)return;GMODO=b.dataset.gm;localStorage.setItem("saude.grafico",GMODO);haptic(true);animSemana=true;animEvo=true;renderSemana();renderEvolucao()});
+function grafico(vals,meta,unidade,anim,id,fmt=n0,pulaZero=false){return gtog()+(GMODO==="linha"?lineSeries(vals,meta,unidade,anim,id,fmt,pulaZero):barChart(vals,meta,unidade,anim,id,fmt))}
+/* linha dos 7 dias: pontos no centro de cada barra, para o rótulo dos dias continuar alinhado. Dias sem registro de sono/passos ficam sem ponto. */
+function lineSeries(vals,meta,unidade,anim,id,fmt,pulaZero){
+  const W=320,H=120,gap=12,bw=(W-gap*6)/7,sel=selBar[id]??6,ds=lastDays(7),cor="var(--ink)";
+  const idx=vals.map((v,i)=>i).filter(i=>!pulaZero||vals[i]>0),ys=idx.map(i=>vals[i]).concat(meta?[meta]:[]);
+  const mn=Math.min(...ys,...(pulaZero?[]:[0])),mx=Math.max(...ys,1),pd=Math.max((mx-mn)*.18,mx*.05,.5),lo=Math.max(0,mn-pd),hi=mx+pd;
+  const X=i=>i*(bw+gap)+bw/2,Y=v=>20+(hi-v)/(hi-lo)*(H-32);
+  let s=`<svg class="chart${anim?" draw":""}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Últimos 7 dias: ${vals.map(v=>fmt(v)).join(", ")} ${unidade}">`;
+  s+=`<line x1="0" x2="${W}" y1="${H-4}" y2="${H-4}" stroke="var(--sep)"/>`;
+  if(meta){const y=Y(meta);s+=`<line x1="0" x2="${W}" y1="${y}" y2="${y}" stroke="var(--label2)" stroke-width="1" stroke-dasharray="3 4"/>`}
+  if(idx.length>1){const pts=idx.map(i=>`${X(i).toFixed(1)},${Y(vals[i]).toFixed(1)}`).join(" ");
+    s+=`<polygon points="${X(idx[0])},${H-4} ${pts} ${X(idx[idx.length-1])},${H-4}" fill="${cor}" opacity=".12"/><polyline points="${pts}" fill="none" stroke="${cor}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>`}
+  idx.forEach(i=>{s+=`<circle cx="${X(i)}" cy="${Y(vals[i])}" r="${i===sel?6:3.5}" fill="${i===sel?cor:"var(--card)"}" stroke="${cor}" stroke-width="2"/>`});
+  if(idx.includes(sel))s+=`<text x="${Math.min(W-28,Math.max(28,X(sel)))}" y="${Math.max(13,Y(vals[sel])-12)}" text-anchor="middle" font-size="13" font-weight="600" fill="var(--label)" font-family="var(--sans)">${fmt(vals[sel])}</text>`;
+  vals.forEach((_,i)=>{s+=`<rect class="hit" data-chart="${id}" data-i="${i}" x="${i*(bw+gap)-gap/2}" y="0" width="${bw+gap}" height="${H}" fill="transparent"><title>${diaCurto(ds[i],i)}: ${fmt(vals[i])} ${unidade}</title></rect>`});
+  s+="</svg>";
+  s+=`<div class="days">${ds.map((d,i)=>i===sel?`<b>${i===6?"Hoje":LETRA[dOf(d).getDay()]}</b>`:`<span>${i===6?"Hoje":LETRA[dOf(d).getDay()]}</span>`).join("")}</div>`;
+  return s;
+}
+
 function lineChart(pts,cor,anim){
   if(pts.length<2)return"";
   const W=320,H=128,R=40,vs=pts.map(p=>p.kg),mn=Math.min(...vs),mx=Math.max(...vs),pd=Math.max(.3,(mx-mn)*.2),lo=mn-pd,hi=mx+pd;
@@ -865,8 +896,8 @@ function renderSemana(){
     :weekM==="sono"?`Média de ${media?fmtH(media):"—"} por noite · meta batida em ${bat} de 7 noites`:`Média de ${n0(media)} ${W.u} por dia · meta batida em ${bat} de 7 dias`;
   const nT=semanaTreinos(),mT=p.metaTreinos||4;
   $("#weekChart").innerHTML=`<p class="cap" style="margin-top:16px"><b>${diaCurto(ds[sel],sel)}: ${f(vs)}${un}</b> de ${f(W.m)}${un}${vs>=W.m?" · meta batida":""}</p>
-    <p class="cap" style="margin-top:0">${resumo}</p>${barChart(W.v,W.m,W.u,anim,"semana",weekM==="sono"?x=>fmtH(x):n0)}
-    <p class="lfoot" style="margin:8px 0 0">Toque numa barra para ver o dia. A linha tracejada é a meta.</p>
+    <p class="cap" style="margin-top:0">${resumo}</p>${grafico(W.v,W.m,W.u,anim,"semana",weekM==="sono"?x=>fmtH(x):n0,weekM==="sono")}
+    <p class="lfoot" style="margin:8px 0 0">Toque ${GMODO==="linha"?"num ponto":"numa barra"} para ver o dia. A linha tracejada é a meta.</p>
     ${sel<6?`<button class="btn full" id="wEdit">${ico("create")}Editar ${diaCurto(ds[sel],sel)}</button>`:""}
     <div class="trw"><span>Treinos nesta semana</span><b>${nT} de ${mT}</b></div><div class="prog"><i style="width:${Math.min(100,nT/mT*100)}%"></i></div>`;
   const we=$("#wEdit");if(we)we.onclick=()=>{setVisto(ds[sel]);scrollTo({top:0,behavior:"smooth"})};
@@ -933,14 +964,14 @@ function renderEvolucao(){
   if(!selUser.passos&&!pv[6]){const k=pv.map((x,i)=>x>0?i:-1).filter(i=>i>=0).pop();if(k!==undefined)selBar.passos=k}
   const sp=selBar.passos;
   $("#passosCard").innerHTML=`<div class="mh">${ico("footsteps")}Passos<span class="r">${ultP?diaCurto(ds[sp],sp):""}</span></div>
-    ${ultP?`<div class="val">${n0(pv[sp])}<small>passos</small></div>${barChart(pv,0,"passos",anim,"passos")}`:`<p class="empty">Nenhum registro de passos ainda.</p>`}
+    ${ultP?`<div class="val">${n0(pv[sp])}<small>passos</small></div>${grafico(pv,0,"passos",anim,"passos",n0,true)}`:`<p class="empty">Nenhum registro de passos ainda.</p>`}
     <button class="btn full" id="passosAdd">${ico("add")}Registrar passos</button>`;
   $("#passosAdd").onclick=sheetPassos;
   const med=f=>{const v=ds.map(f).filter(x=>x>0);return v.length?v.reduce((a,b)=>a+b,0)/v.length:0};
   const hv=ds.map(k=>sonoDe(k)?.horas||0);if(!selUser.sono&&!hv[6]){const k=hv.map((x,i)=>x>0?i:-1).filter(i=>i>=0).pop();if(k!==undefined)selBar.sono=k}
   const ss=selBar.sono,temSono=hv.some(x=>x>0),sd=sonoDe(ds[ss]);
   $("#sonoEvo").innerHTML=`<div class="mh">${ico("moon")}Sono<span class="r">${temSono?diaCurto(ds[ss],ss):""}</span></div>
-    ${temSono?`<div class="val">${hv[ss]?fmtHtml(hv[ss]):"—"}</div><p class="cap" style="margin-top:0">${sd?`${sd.dormiu} – ${sd.acordou}${sd.q?" · "+esc(sd.q):""}`:"Sem registro nesse dia"}</p>${barChart(hv,7,"h",anim,"sono",x=>n1(x)+" h")}
+    ${temSono?`<div class="val">${hv[ss]?fmtHtml(hv[ss]):"—"}</div><p class="cap" style="margin-top:0">${sd?`${sd.dormiu} – ${sd.acordou}${sd.q?" · "+esc(sd.q):""}`:"Sem registro nesse dia"}</p>${grafico(hv,7,"h",anim,"sono",x=>n1(x)+" h",true)}
       <p class="lfoot" style="margin:8px 0 0">Recomendado para adultos: 7 a 9 horas por noite (National Sleep Foundation). A linha marca 7 h.</p>`
       :`<p class="empty">Nenhuma noite registrada ainda.</p>`}
     <button class="btn full" id="sonoAdd2">${ico("add")}Registrar sono</button>`;
