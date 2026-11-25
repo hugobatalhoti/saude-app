@@ -151,6 +151,20 @@ h2{font:700 22px/28px var(--sans);margin:32px 0 12px}
 
 /* água e cardio lado a lado */
 .tiles{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-top:12px}
+.daynav{display:flex;align-items:center;gap:0;margin:4px 0 0 -8px;min-height:44px}
+.daynav .dn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--tint);border-radius:22px;transition:opacity .2s,transform .2s var(--out)}
+.daynav .dn:active{transform:scale(.9)}.daynav .dn[disabled]{opacity:.25;pointer-events:none}
+.daynav .dn .i{width:20px;height:20px}
+.daynav .dt{position:relative;display:flex;align-items:center;min-height:44px;font:400 15px/20px var(--sans);color:var(--label2)}
+.daynav .dt input{position:absolute;inset:0;width:100%;height:100%;opacity:0;font-size:16px;border:0;padding:0;background:none}
+.daynav .dhoje{margin-left:8px;height:28px;padding:0 12px;background:var(--tint);color:#fff;font-weight:600;border-radius:999px}
+.diatag{display:flex;align-items:center;gap:4px;font:400 13px/18px var(--sans);color:var(--label2);margin:0 0 4px}
+.est{display:flex;gap:2px;height:8px;margin-top:12px;border-radius:4px;overflow:hidden}
+.est i{display:block;height:100%}
+.estl{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px;font:400 13px/18px var(--sans);color:var(--label2)}
+.estl span:before{content:"";display:inline-block;width:8px;height:8px;border-radius:4px;margin-right:4px;background:var(--c)}
+.trw{display:flex;justify-content:space-between;align-items:baseline;margin-top:16px;padding-top:12px;border-top:.5px solid var(--sep);font:400 15px/20px var(--sans);color:var(--label2)}
+.trw b{font:600 15px/20px var(--round);color:var(--label)}
 .tile{margin:0;aspect-ratio:1/1;display:flex;flex-direction:column}
 .tile .val{margin-top:8px}
 .tile .prog{margin-top:auto;height:6px;border-radius:3px}
@@ -367,9 +381,10 @@ html.vt-prev::view-transition-new(root){animation:vtPrevIn .42s var(--ease) both
 <!-- ============ RESUMO ============ -->
 <section id="resumo" class="screen on" data-title="Resumo">
   <div class="titlerow"><h1>Resumo</h1><button class="mini-av" id="miniAv" aria-label="Abrir perfil"></button></div>
-  <p class="lead" id="data"></p>
+  <div class="daynav" id="data"></div>
   <p class="status" id="sync"></p>
   <div id="demoTag"></div>
+  <div id="diaTag"></div>
   <div id="medCard"></div>
 
   <div class="tiles">
@@ -405,7 +420,7 @@ html.vt-prev::view-transition-new(root){animation:vtPrevIn .42s var(--ease) both
   <h2>Esta semana</h2>
   <div class="card" id="weekCard">
     <div class="seg" id="weekSeg" role="tablist" style="margin-top:0">
-      <button data-w="prot" class="on" role="tab">Proteína</button><button data-w="agua" role="tab">Água</button><button data-w="cardio" role="tab">Cardio</button>
+      <button data-w="prot" class="on" role="tab">Proteína</button><button data-w="agua" role="tab">Água</button><button data-w="cardio" role="tab">Cardio</button><button data-w="sono" role="tab">Sono</button>
     </div>
     <div id="weekChart"></div>
   </div>
@@ -455,7 +470,7 @@ html.vt-prev::view-transition-new(root){animation:vtPrevIn .42s var(--ease) both
   <div class="me"><button class="avatar" id="avBtn" aria-label="Foto do perfil"></button><input type="file" id="fotoIn" accept="image/*" hidden><div class="nm">Hugo Batalhoti</div><p class="lead" id="meSub"></p></div>
   <p class="lhead">Saúde</p>
   <div class="list" id="pSaude"></div>
-  <p class="lhead">Metas diárias</p>
+  <p class="lhead">Metas</p>
   <div class="list" id="pMetas"></div>
   <p class="lfoot">Toque numa meta para ajustar.</p>
   <p class="lhead">Dados pessoais</p>
@@ -569,7 +584,7 @@ const alimOf=nome=>{const s=String(nome||"").replace(/^Remoção: /,"");return A
 const porUn=a=>a.p*a.gu/100;
 
 /* ---------- estado local ---------- */
-const DEF_PERFIL={altura:"",sangue:"",nasc:"",metaAgua:2500,metaProt:120,metaCardio:30};
+const DEF_PERFIL={altura:"",sangue:"",nasc:"",metaAgua:2500,metaProt:120,metaCardio:30,metaSono:7,metaTreinos:4};
 let S=JSON.parse(localStorage.getItem(KEY)||"null")||{perfil:{},dias:{},series:[],pesos:[],exames:[],meds:[],treinos:[]};
 S.perfil=Object.assign({},DEF_PERFIL,S.perfil);S.doses=S.doses||[];S.sono=S.sono||[];
 const medsAtivos=()=>{const v=new Set();return S.meds.filter(m=>!m.fim&&!v.has(norm(m.n))&&v.add(norm(m.n)))};
@@ -577,7 +592,13 @@ const tomouHoje=n=>S.doses.some(d=>d.data===hojeISO()&&norm(d.nome)===norm(n));
 const save=()=>localStorage.setItem(KEY,JSON.stringify(S));
 const novoDia=()=>({agua:0,aguaH:"",prot:[],passos:"",cardio:""});
 const diaDe=k=>S.dias[k]||(S.dias[k]=novoDia());
-const dia=()=>diaDe(hojeISO());
+/* dia que o Resumo mostra: hoje por padrão, ou um dia anterior para corrigir registros esquecidos */
+let visto=null;
+const vistoISO=()=>visto||hojeISO();
+const ehHoje=()=>vistoISO()===hojeISO();
+const dia=()=>diaDe(vistoISO());
+const refeicaoV=()=>ehHoje()?refeicao():"Ajuste manual";
+function setVisto(iso){const h=hojeISO();if(!iso||iso>=h)iso=null;if(iso===visto)return;visto=iso;animSemana=true;renderResumo()}
 const protItens=d=>{const l=[];(d.prot||[]).forEach(x=>{if(x.g<0){const nm=String(x.n).replace(/^Remoção: /,"");
   for(let i=l.length-1;i>=0;i--)if(l[i].n===nm&&Math.abs(l[i].g+x.g)<.05){l.splice(i,1);break}}else l.push(x)});return l};
 const protTotal=d=>Math.max(0,(d.prot||[]).reduce((a,x)=>a+x.g,0));
@@ -630,9 +651,9 @@ function fromSnapshot(T){
   const dias={};const d=k=>dias[k]||(dias[k]=novoDia());
   (T["Água"]||[]).forEach(r=>{if(!r[0])return;const x=d(r[0]);x.agua+=num(r[2]);if(num(r[2])>0&&r[1])x.aguaH=String(r[1]).slice(0,5)});
   (T["Proteína"]||[]).forEach(r=>{if(r[0]&&num(r[3]))d(r[0]).prot.push({n:r[2]||"",g:num(r[3])})});
-  (T["Cardio e passos"]||[]).forEach(r=>{if(r[0]){const x=d(r[0]);if(r[1]!=="")x.passos=r[1];if(r[2]!=="")x.cardio=r[2]}});
+  (T["Cardio e passos"]||[]).forEach(r=>{if(r[0]){const x=d(r[0]);if(r[1]!=="")x.passos=r[1];if(r[2]!=="")x.cardio=r[2];if(r[4]!==""&&num(r[4])>0)x.kcal=num(r[4])}});
   const series=[],tr={};
-  (T["Treinos"]||[]).forEach(r=>{if(!r[0])return;tr[r[0]+"|"+r[1]]={data:r[0],nome:r[1]};
+  (T["Treinos"]||[]).forEach(r=>{if(!r[0])return;tr[r[0]+"|"+r[1]]={data:r[0],nome:r[1],dur:num(r[6])};
     if(r[2])series.push({data:r[0],treino:r[1],ex:r[2],n:num(r[3]),kg:num(r[4]),rep:num(r[5])})});
   const treinos=Object.values(tr).sort((a,b)=>a.data<b.data?-1:1);
   const pesos=(T["Peso e medidas"]||[]).filter(r=>r[0]&&num(r[1])).map(r=>({data:r[0],kg:num(r[1])})).sort((a,b)=>a.data<b.data?-1:1);
@@ -646,7 +667,7 @@ function fromSnapshot(T){
   const P={};(T["Perfil"]||[]).forEach(r=>P[r[0]]=r[1]);
   let nasc=String(P["Data de nascimento"]||"");if(/^\d{2}\/\d{2}\/\d{4}$/.test(nasc))nasc=nasc.split("/").reverse().join("-");
   S={perfil:{altura:P["Altura (m)"]!==undefined?String(P["Altura (m)"]).replace(".",","):"",sangue:P["Tipo sanguíneo"]||"",nasc,
-      metaAgua:num(P["Meta de água (ml)"])||2500,metaProt:num(P["Meta de proteína (g)"])||120,metaCardio:num(P["Meta de cardio (min)"])||30},
+      metaAgua:num(P["Meta de água (ml)"])||2500,metaProt:num(P["Meta de proteína (g)"])||120,metaCardio:num(P["Meta de cardio (min)"])||30,metaSono:num(P["Meta de sono (h)"])||7,metaTreinos:num(P["Meta de treinos (semana)"])||4},
     dias,series,pesos,exames,meds,treinos,doses,sono};
 }
 
@@ -788,9 +809,16 @@ function recolher(el,cb){
 let novoItem=null;
 function renderResumo(){
   const d=dia(),p=S.perfil;
-  $("#data").textContent=new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"}).replace(/^./,c=>c.toUpperCase());
+  const vk=vistoISO(),hoje=ehHoje();
+  const lbl=dOf(vk).toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"}).replace(/^./,c=>c.toUpperCase());
+  $("#data").innerHTML=`<button class="dn" id="dPrev" aria-label="Dia anterior">${ico("chevron-back")}</button><label class="dt"><span>${lbl}</span><input type="date" id="dPick" max="${hojeISO()}" value="${vk}" aria-label="Escolher o dia"></label><button class="dn" id="dNext" aria-label="Dia seguinte"${hoje?" disabled":""}>${ico("chevron-forward")}</button>${hoje?"":`<button class="btn dhoje" id="dHoje">Hoje</button>`}`;
+  $("#dPrev").onclick=()=>{const d=dOf(vk);d.setDate(d.getDate()-1);haptic(true);setVisto(isoOf(d))};
+  $("#dNext").onclick=()=>{const d=dOf(vk);d.setDate(d.getDate()+1);haptic(true);setVisto(isoOf(d))};
+  $("#dPick").onchange=e=>setVisto(e.target.value);
+  if(!hoje)$("#dHoje").onclick=()=>setVisto(null);
+  $("#diaTag").innerHTML=hoje?"":`<p class="diatag">${ico("create")}<span>Editando ${fmtDia(vk)}. Tudo o que você mudar vale para esse dia.</span></p>`;
   $("#demoTag").innerHTML=DEMO?`<span class="pill demo">${ico("flask")}Dados de exemplo</span>`:"";
-  const pend=medsAtivos().filter(m=>!tomouHoje(m.n));
+  const pend=hoje?medsAtivos().filter(m=>!tomouHoje(m.n)):[];
   $("#medCard").innerHTML=pend.length?`<div class="card"><div class="mh">${ico("medkit")}Remédios de hoje</div>${pend.map(m=>`<div class="medrow"><span class="tx"><b>${esc(m.n)}</b><small>${esc(m.dose?(/^\d+$/.test(String(m.dose))?m.dose+(m.dose==1?" dose":" doses"):m.dose):"Dose não informada")}</small></span><button class="btn solid" data-dose="${esc(m.n)}">${ico("checkmark")}Concluir</button></div>`).join("")}</div>`:"";
   $$("[data-dose]").forEach(b=>b.onclick=()=>{const n=b.dataset.dose;b.disabled=true;b.innerHTML=ico("checkmark")+"Feito";b.classList.add("ok");
     S.doses.push({data:hojeISO(),nome:n});save();enqueue({op:"append",tab:"Doses",row:[hojeISO(),agora(),n]});haptic();
@@ -802,29 +830,46 @@ function renderResumo(){
   $("#protH").textContent=itens.length?`${itens.length} ${itens.length>1?"itens":"item"}`:"";
   $("#protL").innerHTML=itens.length?itens.slice().reverse().map(x=>{const a=alimOf(x.n),nm=String(x.n),m=nm.match(/^(.*?) \((.*)\)$/);
     return `<button class="food${novoItem===nm?" new":""}" data-rm="${esc(nm)}|${x.g}" aria-label="${esc(nm)}, ${n1(x.g)} g. Toque para remover"><span class="em">${a?a.e:"🍽️"}</span><span class="tx"><div class="n">${esc(m?m[1]:nm||"Alimento")}</div>${m?`<div class="s">${esc(m[2])}</div>`:""}</span><span class="g">${n1(x.g)} g</span></button>`}).join("")
-    :`<p class="empty">Nenhum alimento registrado hoje.</p>`;
+    :`<p class="empty">Nenhum alimento registrado ${hoje?"hoje":"nesse dia"}.</p>`;
   novoItem=null;
   $$("[data-rm]").forEach(b=>b.onclick=()=>{const i=b.dataset.rm.lastIndexOf("|");sheetRemover(b.dataset.rm.slice(0,i),num(b.dataset.rm.slice(i+1)),b)});
   tile("cardio",num(d.cardio),p.metaCardio,"min");
-  const sn=sonoDe(hojeISO()),ok=sn&&sn.horas>=7&&sn.horas<=9;
-  $("#sonoCard").innerHTML=`<div class="mh">${ico("moon")}Sono<span class="r">${sn?(sn.fonte==="Saúde"?"Do app Saúde":"Noite passada"):""}</span></div>
-    ${sn?`<div class="val">${fmtHtml(sn.horas)}</div><p class="cap" style="margin-top:0">${sn.dormiu} – ${sn.acordou}${sn.q?" · qualidade "+esc(sn.q.toLowerCase()):""}</p>${sn.est?`<p class="cap" style="margin-top:0">${[["profundo","Profundo"],["rem","REM"],["essencial","Essencial"]].filter(([k])=>sn.est[k]).map(([k,n])=>n+" "+fmtH(sn.est[k])).join(" · ")}</p>`:""}
-      <p class="cap" style="margin-top:0">${ok?"Dentro do recomendado (7 a 9 h)":sn.horas<7?"Abaixo do recomendado (7 a 9 h)":"Acima do recomendado (7 a 9 h)"}</p>
+  const sn=sonoDe(vk),ql=qualSono(sn),mS=p.metaSono||7,pS=sn?Math.min(100,sn.horas/mS*100):0;
+  $("#sonoCard").classList.toggle("done",!!sn&&sn.horas>=mS);
+  $("#sonoCard").innerHTML=`<div class="mh">${ico("moon")}Sono<span class="r">${sn?(sn.fonte==="Saúde"?"Do app Saúde":hoje?"Noite passada":"Noite anterior"):""}</span></div>
+    ${sn?`<div class="val">${fmtHtml(sn.horas)}</div>
+      <div class="prog"><i style="width:${pS}%"></i></div>
+      <div class="pm"><span>${sn.dormiu} – ${sn.acordou}</span><span>${sn.horas>=mS?"Meta batida":"Meta: "+fmtH(mS)}</span></div>
+      <div class="pm" style="margin-top:12px;align-items:center"><span>Qualidade</span><span class="badge${ql.nivel==="Ruim"?" red":""}">${ql.nivel}</span></div>
+      <p class="cap" style="margin-top:4px">${ql.c.map(x=>x[0]+": "+x[2]).join(" · ")}</p>
+      ${sn.est?estagios(sn):""}
       <button class="btn full" id="sonoAdd">Editar</button>`
-    :`<p class="empty">Como foi a noite? Registre a hora em que dormiu e acordou.</p><button class="btn full" id="sonoAdd">${ico("add")}Registrar sono</button>`}`;
+    :`<p class="empty">${hoje?"Como foi a noite? Registre a hora em que dormiu e acordou.":"Sem registro de sono para esse dia."}</p><button class="btn full" id="sonoAdd">${ico("add")}Registrar sono</button>`}`;
   $("#sonoAdd").onclick=sheetSono;
   renderSemana();
 }
+function semanaTreinos(){
+  const d=new Date();d.setDate(d.getDate()-((d.getDay()+6)%7));const ini=isoOf(d),h=hojeISO();
+  return new Set(S.treinos.filter(t=>t.data>=ini&&t.data<=h).map(t=>t.data)).size;
+}
 function renderSemana(){
   const p=S.perfil,ds=lastDays(7),anim=animSemana;animSemana=false;
-  const W={prot:{v:ds.map(k=>protTotal(diaDe(k))),m:p.metaProt,c:"var(--prot)",u:"g"},
-           agua:{v:ds.map(k=>Math.max(0,diaDe(k).agua)),m:p.metaAgua,c:"var(--water)",u:"ml"},
-           cardio:{v:ds.map(k=>num(diaDe(k).cardio)),m:p.metaCardio,c:"var(--cardio)",u:"min"}}[weekM];
+  const W={prot:{v:ds.map(k=>protTotal(diaDe(k))),m:p.metaProt,u:"g"},
+           agua:{v:ds.map(k=>Math.max(0,diaDe(k).agua)),m:p.metaAgua,u:"ml"},
+           cardio:{v:ds.map(k=>num(diaDe(k).cardio)),m:p.metaCardio,u:"min"},
+           sono:{v:ds.map(k=>sonoDe(k)?.horas||0),m:p.metaSono||7,u:"",f:x=>x?fmtH(x):"—"}}[weekM];
+  const f=W.f||n0,un=W.u?" "+W.u:"";
   const comV=W.v.filter(v=>v>0),media=comV.length?comV.reduce((a,b)=>a+b,0)/comV.length:0,bat=W.v.filter(v=>v>=W.m).length;
-  const sel=selBar.semana,vs=W.v[sel];
-  $("#weekChart").innerHTML=`<p class="cap" style="margin-top:16px"><b>${diaCurto(ds[sel],sel)}: ${n0(vs)} ${W.u}</b> de ${n0(W.m)} ${W.u}${vs>=W.m?" · meta batida":""}</p>
-    <p class="cap" style="margin-top:0">${weekM==="cardio"?`${n0(W.v.reduce((a,b)=>a+b,0))} min na semana`:`Média de ${n0(media)} ${W.u} por dia`} · meta batida em ${bat} de 7 dias</p>${barChart(W.v,W.m,W.u,anim,"semana")}
-    <p class="lfoot" style="margin:8px 0 0">Toque numa barra para ver o dia. A linha tracejada é a meta.</p>`;
+  const sel=selBar.semana,vs=W.v[sel],nTr=ds.filter(k=>S.treinos.some(t=>t.data===k)).length;
+  const resumo=weekM==="cardio"?`${n0(W.v.reduce((a,b)=>a+b,0))} min na semana · meta batida em ${bat}${nTr?` de ${nTr} ${nTr>1?"dias":"dia"} de treino`:" dias"}`
+    :weekM==="sono"?`Média de ${media?fmtH(media):"—"} por noite · meta batida em ${bat} de 7 noites`:`Média de ${n0(media)} ${W.u} por dia · meta batida em ${bat} de 7 dias`;
+  const nT=semanaTreinos(),mT=p.metaTreinos||4;
+  $("#weekChart").innerHTML=`<p class="cap" style="margin-top:16px"><b>${diaCurto(ds[sel],sel)}: ${f(vs)}${un}</b> de ${f(W.m)}${un}${vs>=W.m?" · meta batida":""}</p>
+    <p class="cap" style="margin-top:0">${resumo}</p>${barChart(W.v,W.m,W.u,anim,"semana",weekM==="sono"?x=>fmtH(x):n0)}
+    <p class="lfoot" style="margin:8px 0 0">Toque numa barra para ver o dia. A linha tracejada é a meta.</p>
+    ${sel<6?`<button class="btn full" id="wEdit">${ico("create")}Editar ${diaCurto(ds[sel],sel)}</button>`:""}
+    <div class="trw"><span>Treinos nesta semana</span><b>${nT} de ${mT}</b></div><div class="prog"><i style="width:${Math.min(100,nT/mT*100)}%"></i></div>`;
+  const we=$("#wEdit");if(we)we.onclick=()=>{setVisto(ds[sel]);scrollTo({top:0,behavior:"smooth"})};
   $$("#weekSeg button").forEach(b=>{b.classList.toggle("on",b.dataset.w===weekM);b.setAttribute("aria-selected",b.dataset.w===weekM)});segSync($("#weekSeg"));
 }
 $$("#weekSeg button").forEach(b=>b.onclick=()=>{if(weekM===b.dataset.w)return;weekM=b.dataset.w;animSemana=true;renderSemana()});
@@ -843,7 +888,7 @@ function renderTreinos(){
   }else $("#seriesL").innerHTML=`<p class="empty" style="margin:0">Nenhuma série hoje. As que você registrar aparecem aqui.</p>`;
   const hist=[...S.treinos].reverse().slice(0,12);
   $("#histL").innerHTML=hist.length?hist.map(h=>{const t=trOf(h.nome),ns=S.series.filter(s=>s.data===h.data).length;
-    return `<div class="li"><span class="letter">${t.k}</span><span class="tx">${esc(t.n)}<small>${ns?`${ns} séries`:"Sem séries registradas"}</small></span><span class="d">${fmtDia(h.data)}</span></div>`}).join("")
+    return `<div class="li"><span class="letter">${t.k}</span><span class="tx">${esc(t.n)}<small>${[ns?`${ns} séries`:"",h.dur?`${h.dur} min`:"",S.dias[h.data]?.kcal?`${n0(S.dias[h.data].kcal)} kcal`:""].filter(Boolean).join(" · ")||"Sem séries registradas"}</small></span><span class="d">${fmtDia(h.data)}</span></div>`}).join("")
     :`<div class="li"><span class="tx" style="color:var(--label2)">Nenhum treino registrado ainda.</span></div>`;
 }
 function exHintUpd(){
@@ -900,9 +945,8 @@ function renderEvolucao(){
       :`<p class="empty">Nenhuma noite registrada ainda.</p>`}
     <button class="btn full" id="sonoAdd2">${ico("add")}Registrar sono</button>`;
   $("#sonoAdd2").onclick=sheetSono;
-  const nT=ds.filter(k=>S.treinos.some(t=>t.data===k)).length;
   $("#medias").innerHTML=[["water","water","Água",`${n0(med(k=>diaDe(k).agua))} ml`],["prot","restaurant","Proteína",`${n0(med(k=>protTotal(diaDe(k))))} g`],
-    ["cardio","pulse","Cardio",`${n0(med(k=>num(diaDe(k).cardio)))} min`],["sono","moon","Sono",med(k=>sonoDe(k)?.horas||0)?fmtH(med(k=>sonoDe(k)?.horas||0)):"—"],["train","barbell","Treinos",`${nT} de 7 dias`]]
+    ["cardio","pulse","Cardio",`${n0(med(k=>num(diaDe(k).cardio)))} min`],["sono","moon","Sono",med(k=>sonoDe(k)?.horas||0)?fmtH(med(k=>sonoDe(k)?.horas||0)):"—"],["train","barbell","Treinos",`${semanaTreinos()} de ${p.metaTreinos||4} na semana`]]
     .map(([c,i,n,v])=>`<div class="li ${c}"><span class="ic">${ico(i)}</span><span class="tx">${n}</span><span class="d">${v}</span></div>`).join("");
 }
 
@@ -914,7 +958,7 @@ function renderPerfil(){
   const venc=S.exames.filter(e=>e.prox&&e.prox<hojeISO()).length;
   $("#pSaude").innerHTML=`<button class="li" data-push="exames" style="--c:var(--red)"><span class="ic">${ico("flask")}</span><span class="tx">Exames</span><span class="d">${venc?`<span class="badge red">${venc} vencido${venc>1?"s":""}</span>`:S.exames.length||""}</span>${ico("chevron-forward","i chev")}</button>
     <button class="li" data-push="meds" style="--c:var(--tint)"><span class="ic">${ico("medkit")}</span><span class="tx">Remédios e vitaminas</span><span class="d">${medsAtivos().length||""}</span>${ico("chevron-forward","i chev")}</button>`;
-  $("#pMetas").innerHTML=[["water","water","Água",`${n0(p.metaAgua)} ml`,"agua"],["prot","restaurant","Proteína",`${n0(p.metaProt)} g`,"prot"],["cardio","pulse","Cardio",`${n0(p.metaCardio)} min`,"cardio"]]
+  $("#pMetas").innerHTML=[["water","water","Água",`${n0(p.metaAgua)} ml`,"agua"],["prot","restaurant","Proteína",`${n0(p.metaProt)} g`,"prot"],["cardio","pulse","Cardio",`${n0(p.metaCardio)} min`,"cardio"],["sono","moon","Sono",`${n1(p.metaSono||7)} h`,"sono"],["train","barbell","Treinos",`${p.metaTreinos||4} por semana`,"treinos"]]
     .map(([c,i,n,v,k])=>`<button class="li ${c}" data-meta="${k}"><span class="ic">${ico(i)}</span><span class="tx">${n}</span><span class="d">${v}</span>${ico("chevron-forward","i chev")}</button>`).join("");
   $("#pDados").innerHTML=[["altura","Altura",p.altura?p.altura+" m":"Adicionar"],["sangue","Tipo sanguíneo",p.sangue||"Adicionar"],["nasc","Data de nascimento",p.nasc?fmtD(p.nasc):"Adicionar"]]
     .map(([k,n,v])=>`<button class="li" data-dado="${k}"><span class="tx">${n}</span><span class="d">${esc(v)}</span>${ico("chevron-forward","i chev")}</button>`).join("");
@@ -983,10 +1027,27 @@ const minDe=t=>{const [a,b]=String(t).split(":").map(Number);return a*60+(b||0)}
 const durH=(d,a)=>{let m=minDe(a)-minDe(d);if(m<=0)m+=1440;return Math.round(m/6)/10};
 const fmtH=h=>{const t=Math.round(h*60),hh=Math.floor(t/60),mm=t%60;return mm?`${hh} h ${mm} min`:`${hh} h`};
 const fmtHtml=h=>{const t=Math.round(h*60),hh=Math.floor(t/60),mm=t%60;return `${hh}<small>h</small>${mm?` ${mm}<small>min</small>`:""}`};
+/* qualidade: média simples de duração (contra a meta), como a pessoa acordou e, quando há Apple Watch, % de sono profundo + REM.
+   Referência das fases: 13-23% profundo e 20-25% REM em adultos saudáveis (AASM / Sleep Foundation). É uma estimativa do app, não um diagnóstico. */
+function qualSono(sn){
+  if(!sn)return null;
+  const meta=S.perfil.metaSono||7,c=[];
+  c.push([sn.horas>9?.8:Math.min(1,sn.horas/meta),"Duração",sn.horas>9?"acima de 9 h":sn.horas>=meta?"dentro da meta":"abaixo da meta"]);
+  const f={Ruim:.15,Regular:.5,Boa:.8,"Ótima":1}[sn.q];
+  if(f!==undefined)c.push([f,"Ao acordar",sn.q.toLowerCase()]);
+  if(sn.est&&sn.horas){const pr=((sn.est.profundo||0)+(sn.est.rem||0))/sn.horas;c.push([Math.min(1,pr/.35),"Profundo + REM",n0(pr*100)+"%"])}
+  const sc=c.reduce((a,x)=>a+x[0],0)/c.length;
+  return {sc,nivel:sc>=.85?"Ótima":sc>=.65?"Boa":sc>=.45?"Regular":"Ruim",c:c.map(x=>[x[1],x[0],x[2]])};
+}
+function estagios(sn){
+  const L=[["profundo","Profundo","var(--ink)"],["rem","REM","var(--label2)"],["essencial","Essencial","var(--label3)"]].filter(([k])=>sn.est[k]),tot=L.reduce((a,[k])=>a+sn.est[k],0)||1;
+  return `<div class="est" aria-hidden="true">${L.map(([k,,c])=>`<i style="width:${sn.est[k]/tot*100}%;background:${c}"></i>`).join("")}</div>
+    <div class="estl">${L.map(([k,n,c])=>`<span style="--c:${c}">${n} ${fmtH(sn.est[k])}</span>`).join("")}</div>`;
+}
 function sheetSono(){
-  const ult=S.sono[S.sono.length-1],hoje=sonoDe(hojeISO());let q=hoje?.q||"Boa";
+  const ult=S.sono[S.sono.length-1],hoje=sonoDe(vistoISO());let q=hoje?.q||"Boa";
   const d0=hoje?.dormiu||ult?.dormiu||"23:30",a0=hoje?.acordou||ult?.acordou||"07:00";
-  openSheet({title:"Registrar sono",body:`<div class="sono-t"><div><label class="flabel" for="sD">Dormiu</label><input class="field" id="sD" type="time" value="${d0}"></div>
+  openSheet({title:ehHoje()?"Registrar sono":"Sono de "+fmtDia(vistoISO()),body:`<div class="sono-t"><div><label class="flabel" for="sD">Dormiu</label><input class="field" id="sD" type="time" value="${d0}"></div>
     <div><label class="flabel" for="sA">Acordou</label><input class="field" id="sA" type="time" value="${a0}"></div></div>
     <div class="result" aria-live="polite" style="font-size:40px;line-height:48px"><span id="sR"></span></div>
     <label class="flabel">Como você se sentiu ao acordar?</label>
@@ -996,10 +1057,10 @@ function sheetSono(){
     onOpen:()=>{const up=()=>{const d=$("#sD").value,a=$("#sA").value;$("#sR").innerHTML=d&&a?fmtH(durH(d,a)):"—";$("#sOk").disabled=!(d&&a)};
       $("#sD").oninput=up;$("#sA").oninput=up;up();segSync($("#sQ"));
       $$("#sQ button").forEach(b=>b.onclick=()=>{q=b.dataset.q;$$("#sQ button").forEach(x=>x.classList.toggle("on",x===b));segSync($("#sQ"))});
-      $("#sOk").onclick=()=>{const d=$("#sD").value,a=$("#sA").value,hrs=durH(d,a),k=hojeISO();
+      $("#sOk").onclick=()=>{const d=$("#sD").value,a=$("#sA").value,hrs=durH(d,a),k=vistoISO();
         S.sono=S.sono.filter(s=>s.data!==k);S.sono.push({data:k,dormiu:d,acordou:a,horas:hrs,q});S.sono.sort((x,y)=>x.data<y.data?-1:1);save();render();closeSheet();
         enqueue({op:"upsert",tab:"Sono",key:k,cols:{1:d,2:a,3:hrs,4:q,5:"App"}});
-        if(hrs>=7&&hrs<=9)setTimeout(()=>celebrar("Noite completa",`${fmtH(hrs)} de sono`,false),450)}}});
+        if(ehHoje()&&hrs>=(S.perfil.metaSono||7)&&hrs<=9)setTimeout(()=>celebrar("Noite completa",`${fmtH(hrs)} de sono`,false),450)}}});
 }
 
 /* ---------- controle segmentado com indicador deslizante ---------- */
@@ -1062,13 +1123,13 @@ function confetes(){
 /* ---------- ações do Resumo ---------- */
 $$("[data-agua]").forEach(b=>b.onclick=()=>{const v=Number(b.dataset.agua),d=dia();
   if(v<0&&d.agua<=0)return;const dv=v<0?-Math.min(-v,d.agua):v;
-  const antes=d.agua;d.agua+=dv;if(dv>0)d.aguaH=agora();save();render();enqueue({op:"append",tab:"Água",row:[hojeISO(),agora(),dv]});
-  if(antes<S.perfil.metaAgua&&d.agua>=S.perfil.metaAgua)celebrar("Meta de água batida",`${n1(S.perfil.metaAgua/1000)} L hoje`)});
-const upCardio=()=>{const d=dia();enqueue({op:"upsert",tab:"Cardio e passos",key:hojeISO(),cols:{1:d.passos===""?"":num(d.passos),2:d.cardio===""?"":num(d.cardio),5:"App"}})};
+  const antes=d.agua,k=vistoISO();d.agua+=dv;if(dv>0&&ehHoje())d.aguaH=agora();save();render();enqueue({op:"append",tab:"Água",row:[k,ehHoje()?agora():"",dv]});
+  if(ehHoje()&&antes<S.perfil.metaAgua&&d.agua>=S.perfil.metaAgua)celebrar("Meta de água batida",`${n1(S.perfil.metaAgua/1000)} L hoje`)});
+const upCardio=(k=hojeISO())=>{const d=diaDe(k);enqueue({op:"upsert",tab:"Cardio e passos",key:k,cols:{1:d.passos===""?"":num(d.passos),2:d.cardio===""?"":num(d.cardio),5:"App"}})};
 let cardioT=null;
-$$("[data-cardio]").forEach(b=>b.onclick=()=>{const d=dia(),v=Math.max(0,num(d.cardio)+Number(b.dataset.cardio));
+$$("[data-cardio]").forEach(b=>b.onclick=()=>{const d=dia(),k=vistoISO(),v=Math.max(0,num(d.cardio)+Number(b.dataset.cardio));
   if(num(d.cardio)===v)return;const antes=num(d.cardio);d.cardio=v;save();render();
-  if(antes<S.perfil.metaCardio&&v>=S.perfil.metaCardio)celebrar("Meta de cardio batida",`${v} min hoje`);clearTimeout(cardioT);cardioT=setTimeout(upCardio,1200)});
+  if(ehHoje()&&antes<S.perfil.metaCardio&&v>=S.perfil.metaCardio)celebrar("Meta de cardio batida",`${v} min hoje`);clearTimeout(cardioT);cardioT=setTimeout(()=>upCardio(k),1200)});
 $("#protAdd").onclick=()=>sheetAlimentos();
 
 /* ---------- folha: alimentos ---------- */
@@ -1119,15 +1180,15 @@ function sheetOutro(q){
     onOpen:()=>{const c=()=>$("#oAdd").disabled=!(num($("#oG").value)>0);$("#oG").oninput=c;
       $("#oAdd").onclick=()=>addProt($("#oN").value.trim()||"Alimento",Math.round(num($("#oG").value)*10)/10);setTimeout(()=>$("#oG").focus(),400)}});
 }
-function addProt(n,g){novoItem=n;const antes=protTotal(dia());dia().prot.push({n,g});save();render();closeSheet();
-  const dep=protTotal(dia()),m=S.perfil.metaProt;if(antes<m&&dep>=m)setTimeout(()=>celebrar("Meta de proteína batida",`${n0(dep)} g hoje`),450);enqueue({op:"append",tab:"Proteína",row:[hojeISO(),refeicao(),n,g,""]})}
+function addProt(n,g){novoItem=n;const k=vistoISO(),antes=protTotal(dia());dia().prot.push({n,g});save();render();closeSheet();
+  const dep=protTotal(dia()),m=S.perfil.metaProt;if(ehHoje()&&antes<m&&dep>=m)setTimeout(()=>celebrar("Meta de proteína batida",`${n0(dep)} g hoje`),450);enqueue({op:"append",tab:"Proteína",row:[k,refeicaoV(),n,g,""]})}
 function sheetRemover(n,g,rowEl){
   const m=n.match(/^(.*?) \((.*)\)$/);
-  openSheet({title:"Remover alimento",body:`<div class="confirm"><p class="q">Remover ${esc(m?m[1]:n)}${m?` (${esc(m[2])})`:""}?</p><p>${n1(g)} g saem do total de hoje.</p></div>
+  openSheet({title:"Remover alimento",body:`<div class="confirm"><p class="q">Remover ${esc(m?m[1]:n)}${m?` (${esc(m[2])})`:""}?</p><p>${n1(g)} g saem do total ${ehHoje()?"de hoje":"de "+fmtDia(vistoISO())}.</p></div>
     <button class="btn danger full big" id="rmOk">Remover</button><button class="btn full big" id="rmNo" style="margin-top:8px">Manter</button>`,
-    onOpen:()=>{$("#rmNo").onclick=closeSheet;$("#rmOk").onclick=()=>{closeSheet();
-      enqueue({op:"append",tab:"Proteína",row:[hojeISO(),refeicao(),"Remoção: "+n,-g,""]});
-      const fim=()=>{dia().prot.push({n:"Remoção: "+n,g:-g});save();render()};
+    onOpen:()=>{$("#rmNo").onclick=closeSheet;$("#rmOk").onclick=()=>{closeSheet();const k=vistoISO();
+      enqueue({op:"append",tab:"Proteína",row:[k,refeicaoV(),"Remoção: "+n,-g,""]});
+      const fim=()=>{diaDe(k).prot.push({n:"Remoção: "+n,g:-g});save();render()};
       if(rowEl&&rowEl.isConnected)setTimeout(()=>recolher(rowEl,fim),250);else fim()}}});
 }
 
@@ -1148,12 +1209,13 @@ function sheetNumero({title,label,un,valor,passo,dec,cor,onSave,nota=""}){
 function sheetPeso(){const u=S.pesos[S.pesos.length-1];
   sheetNumero({title:"Registrar peso",label:"Peso",un:"kg",valor:u?u.kg:70,passo:.1,dec:true,cor:"weight",nota:"Para comparar melhor, pese-se sempre no mesmo horário.",
     onSave:kg=>{S.pesos.push({data:hojeISO(),kg});S.pesos.sort((a,b)=>a.data<b.data?-1:1);save();render();enqueue({op:"append",tab:"Peso e medidas",row:[hojeISO(),kg]})}})}
-function sheetPassos(){const d=dia();
+function sheetPassos(){const d=diaDe(hojeISO());
   sheetNumero({title:"Registrar passos",label:"Passos de hoje",un:"passos hoje",valor:num(d.passos)||8000,passo:500,dec:false,cor:"steps",nota:"O número está no app Saúde do iPhone, em Passos.",
-    onSave:v=>{d.passos=Math.round(v);save();render();upCardio()}})}
-function sheetMeta(k){const p=S.perfil,M={agua:["Meta de água","ml","metaAgua",250,"water","Meta de água (ml)"],prot:["Meta de proteína","g","metaProt",5,"prot","Meta de proteína (g)"],cardio:["Meta de cardio","min","metaCardio",5,"cardio","Meta de cardio (min)"]}[k];
-  sheetNumero({title:M[0],label:M[0],un:M[1]+" por dia",valor:p[M[2]],passo:M[3],dec:false,cor:M[4],
-    onSave:v=>{p[M[2]]=Math.round(v);save();render();enqueue({op:"upsert",tab:"Perfil",key:M[5],cols:{1:Math.round(v)}})}})}
+    onSave:v=>{d.passos=Math.round(v);save();render();upCardio(hojeISO())}})}
+function sheetMeta(k){const p=S.perfil,M={agua:["Meta de água","ml","metaAgua",250,"water","Meta de água (ml)","por dia",false],prot:["Meta de proteína","g","metaProt",5,"prot","Meta de proteína (g)","por dia",false],cardio:["Meta de cardio","min","metaCardio",5,"cardio","Meta de cardio (min)","por dia de treino",false],
+  sono:["Meta de sono","h","metaSono",.5,"cardio","Meta de sono (h)","por noite",true],treinos:["Meta de treinos","treinos","metaTreinos",1,"cardio","Meta de treinos (semana)","por semana",false]}[k];
+  sheetNumero({title:M[0],label:M[0],un:M[1]+" "+M[6],valor:p[M[2]],passo:M[3],dec:M[7],cor:M[4],
+    onSave:v=>{const r=M[7]?Math.round(v*10)/10:Math.round(v);p[M[2]]=r;save();render();enqueue({op:"upsert",tab:"Perfil",key:M[5],cols:{1:r}})}})}
 function sheetDado(k){const p=S.perfil,
   M={altura:["Altura","Em metros, ex.: 1,71","decimal",p.altura,"text","Altura (m)"],sangue:["Tipo sanguíneo","Ex.: O+","text",p.sangue,"text","Tipo sanguíneo"],nasc:["Data de nascimento","","text",p.nasc,"date","Data de nascimento"]}[k];
   openSheet({title:M[0],body:`<input class="field" id="dV" type="${M[4]}" inputmode="${M[2]}" placeholder="${M[1]}" value="${esc(M[3])}" style="margin-top:16px" autocomplete="off" aria-label="${M[0]}">
@@ -1219,7 +1281,7 @@ function seedDemo(){
   return {perfil:{altura:"1,71",sangue:"O+",nasc:"2001-08-04",metaAgua:2500,metaProt:120,metaCardio:30},dias,series,pesos,treinos,
     exames:[{n:"Hemograma completo",data:"2026-05-12",prox:"2026-11-12",alt:""},{n:"Vitamina D",data:"2026-05-12",prox:"2027-05-12",alt:"Baixa"},{n:"Glicemia em jejum",data:"2026-05-12",prox:"2027-05-12",alt:""}],
     meds:[{n:"Vitamina capilar",dose:"1 cápsula pela manhã",tipo:"Remédio"}],doses:[],
-    sono:ds.slice(0,13).map((k,i)=>{const d=["23:10","00:20","23:40","01:05","23:30","22:50","00:40"][i%7],a=["07:00","07:30","06:50","08:10","07:15","06:40","08:00"][i%7];return{data:k,dormiu:d,acordou:a,horas:durH(d,a),q:["Boa","Regular","Boa","Ruim","Ótima","Boa","Regular"][i%7]}})};
+    sono:ds.slice(0,13).map((k,i)=>{const d=["23:10","00:20","23:40","01:05","23:30","22:50","00:40"][i%7],a=["07:00","07:30","06:50","08:10","07:15","06:40","08:00"][i%7];const h=durH(d,a);return{data:k,dormiu:d,acordou:a,horas:h,q:["Boa","Regular","Boa","Ruim","Ótima","Boa","Regular"][i%7],est:i%3===0?{profundo:h*.17,rem:h*.22,essencial:h*.55}:null}})};
 }
 if(DEMO&&(!localStorage.getItem(KEY)||QS.has("reset"))){S=seedDemo();save()}
 
