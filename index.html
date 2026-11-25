@@ -446,6 +446,8 @@ html.vt-prev::view-transition-new(root){animation:vtPrevIn .42s var(--ease) both
     </div>
     <button class="btn solid full big" id="exAdd">Registrar série</button>
   </div>
+  <h2 id="planH">Exercícios do treino</h2>
+  <div class="list noicon" id="planL"></div>
   <h2>Séries de hoje</h2>
   <div class="card" id="seriesL"></div>
   <div class="list" id="kcalL" style="margin-top:12px"></div>
@@ -543,8 +545,11 @@ const LETRA=["D","S","T","Q","Q","S","S"];
 const refeicao=()=>{const h=new Date().getHours();return h>=5&&h<11?"Café da manhã":h>=11&&h<15?"Almoço":h>=15&&h<19?"Lanche":"Jantar"};
 
 /* ---------- treinos A-D ---------- */
-const TREINOS=[{k:"A",full:"A - Peito / Ombro",n:"Peito e ombro"},{k:"B",full:"B - Costas / Ombro",n:"Costas e ombro"},
-  {k:"C",full:"C - Perna Completa",n:"Perna completa"},{k:"D",full:"D - Tríceps / Bíceps",n:"Tríceps e bíceps"}];
+const TREINOS=[
+  {k:"A",full:"A - Peito / Ombro",n:"Peito e ombro",ex:["Supino Máquina Vertical","Supino Inclinado Máquina","Crucifixo Máquina Fly","Elevação Lateral (halter)","Desenvolvimento Máquina"]},
+  {k:"B",full:"B - Costas / Ombro",n:"Costas e ombro",ex:["Puxada Alta Peg Aberta","Remada Baixa Triângulo","Remada Cavalinho Máquina","Crucifixo Inverso (máquina)","Elevação Frontal (halter)"]},
+  {k:"C",full:"C - Perna Completa",n:"Perna completa",ex:["Cadeira Extensora","Agachamento Hack","Cadeira Flexora","Leg Press 90 Horizontal","Cadeira Adutora","Panturrilha em Pé"]},
+  {k:"D",full:"D - Tríceps / Bíceps",n:"Tríceps e bíceps",ex:["Tríceps no Pulley (corda)","Tríceps Francês (polia)","Tríceps Testa (halter)","Bíceps Alternado com Halteres","Bíceps Direto na Barra W","Bíceps Scott Máquina"]}];
 const trOf=nome=>TREINOS.find(t=>t.k===String(nome||"")[0])||{k:"?",full:nome,n:nome};
 
 /* ---------- banco de alimentos (proteína por 100 g) ----------
@@ -904,7 +909,11 @@ function renderTreinos(){
   $$("[data-trs]").forEach(b=>b.onclick=()=>{if(b.dataset.trs===trSel())return;selTrUser=b.dataset.trs;render();const tt=$("#trTitle");tt.classList.remove("swapin");void tt.offsetWidth;tt.classList.add("swapin")});
   segSync($("#trSeg"));$("#trTitle").textContent=`${t.k} · ${t.n}`;
   const exsTr=[...new Set(S.series.filter(s=>trOf(s.treino).k===selTr).map(s=>s.ex))],exsAll=[...new Set(S.series.map(s=>s.ex))];
-  $("#exs").innerHTML=[...new Set([...exsTr,...exsAll])].map(e=>`<option value="${esc(e)}">`).join("");
+  $("#planH").textContent=`Exercícios do treino ${t.k}`;
+  $("#planL").innerHTML=t.ex.map((e,i)=>{const ult=S.series.filter(x=>norm(x.ex)===norm(e)).pop(),hj=S.series.filter(x=>x.data===hojeISO()&&norm(x.ex)===norm(e)).length;
+    return `<button class="li" data-pex="${i}"><span class="tx">${esc(e)}<small>3 séries${ult?` · última: ${n1(ult.kg)} kg × ${ult.rep}`:""}</small></span><span class="d">${hj?hj+" de 3":""}</span></button>`}).join("");
+  $$("[data-pex]").forEach(b=>b.onclick=()=>{const i=$("#exN");i.value=t.ex[+b.dataset.pex];i.dispatchEvent(new Event("change"));haptic(true);scrollTo({top:0,behavior:"smooth"})});
+  $("#exs").innerHTML=[...new Set([...t.ex,...exsTr,...exsAll])].map(e=>`<option value="${esc(e)}">`).join("");
   exHintUpd();
   const sh=S.series.filter(s=>s.data===hojeISO());
   if(sh.length){const g={};sh.forEach(s=>(g[s.ex]=g[s.ex]||[]).push(s));
